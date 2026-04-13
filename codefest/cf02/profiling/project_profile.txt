@@ -1,0 +1,71 @@
+BNN Trail-Camera Classifier — cProfile Output
+ECE 510 Spring 2026, Codefest 02 / M1 Deliverable
+Script: project/baseline_profile.py
+Platform: Apple Silicon arm64, macOS Darwin 24.6.0, Python 3.14.3, PyTorch 2.11.0
+Device: CPU (intentional baseline), Batch size: 1, N_runs: 100
+======================================================================
+
+Wall-clock results (100 runs, batch size = 1):
+  Total time      : 1219.0 ms
+  Avg latency     : 12.190 ms / image
+  Throughput      : 82.0 samples/sec
+
+cProfile top-20 functions (cumulative time):
+         12315 function calls (10715 primitive calls) in 1.196 seconds
+
+   Ordered by: cumulative time
+   List reduced from 40 to 20 due to restriction <20>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000    1.196    1.196 baseline_profile.py:280(run_inference)
+  900/100    0.002    0.000    1.196    0.012 torch/nn/modules/module.py:1775(_wrapped_call_impl)
+  900/100    0.042    0.000    1.196    0.012 torch/nn/modules/module.py:1783(_call_impl)
+      100    0.075    0.001    1.195    0.012 baseline_profile.py:228(forward)
+      300    0.154    0.001    0.916    0.003 baseline_profile.py:186(forward)
+      300    0.562    0.002    0.562    0.002 {built-in method torch.conv2d}
+      900    0.132    0.000    0.132    0.000 {built-in method torch.sign}
+      600    0.087    0.000    0.087    0.000 {built-in method torch.where}
+      300    0.001    0.000    0.080    0.000 torch/nn/modules/batchnorm.py:160(forward)
+      300    0.001    0.000    0.077    0.000 torch/nn/functional.py:2811(batch_norm)
+      300    0.075    0.000    0.075    0.000 {built-in method torch.batch_norm}
+      600    0.049    0.000    0.049    0.000 {built-in method torch.ones_like}
+      100    0.000    0.000    0.008    0.000 torch/nn/modules/pooling.py:1508(forward)
+      100    0.000    0.000    0.008    0.000 torch/nn/functional.py:1386(adaptive_avg_pool2d)
+      100    0.007    0.000    0.007    0.000 {built-in method torch._C._nn.adaptive_avg_pool2d}
+     3100    0.002    0.000    0.002    0.000 torch/nn/modules/module.py:1955(__getattr__)
+      100    0.000    0.000    0.002    0.000 torch/nn/modules/linear.py:130(forward)
+      100    0.002    0.000    0.002    0.000 {built-in method torch._C._nn.linear}
+      900    0.001    0.000    0.001    0.000 {built-in method torch._C._get_tracing_state}
+      100    0.001    0.000    0.001    0.000 torch/nn/modules/utils.py:35(_list_with_default)
+
+======================================================================
+TORCHINFO MODEL SUMMARY  (MACs and parameter sizes per layer)
+======================================================================
+============================================================================================================================================
+Layer (type:depth-idx)                   Input Shape               Output Shape              Param #                   Mult-Adds
+============================================================================================================================================
+BNNClassifier                            [1, 3, 224, 224]          [1, 2]                    --                        --
+├─BinarizeConv2d: 1-1                    [1, 3, 224, 224]          [1, 32, 224, 224]         864                       43,352,064
+├─BatchNorm2d: 1-2                       [1, 32, 224, 224]         [1, 32, 224, 224]         64                        64
+├─BinarizeConv2d: 1-3                    [1, 32, 224, 224]         [1, 64, 112, 112]         18,432                    231,211,008
+├─BatchNorm2d: 1-4                       [1, 64, 112, 112]         [1, 64, 112, 112]         128                       128
+├─BinarizeConv2d: 1-5                    [1, 64, 112, 112]         [1, 128, 56, 56]          73,728                    231,211,008
+├─BatchNorm2d: 1-6                       [1, 128, 56, 56]          [1, 128, 56, 56]          256                       256
+├─AdaptiveAvgPool2d: 1-7                 [1, 128, 56, 56]          [1, 128, 1, 1]            --                        --
+├─Linear: 1-8                            [1, 128]                  [1, 2]                    258                       258
+============================================================================================================================================
+Total params: 93,730
+Trainable params: 93,730
+Non-trainable params: 0
+Total mult-adds (Units.MEGABYTES): 505.77
+============================================================================================================================================
+Input size (MB): 0.60
+Forward/backward pass size (MB): 44.96
+Params size (MB): 0.37
+Estimated Total Size (MB): 45.93
+============================================================================================================================================
+
+Summary totals:
+  Total MACs   : 505,774,786
+  Total FLOPs  : 1,011,549,572  (MACs x 2)
+  Total params : 93,730
