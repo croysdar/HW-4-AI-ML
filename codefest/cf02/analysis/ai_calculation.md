@@ -1,4 +1,5 @@
 # Arithmetic Intensity Calculation
+
 ECE 510 Spring 2026 — Codefest 02 / M1 Deliverable
 
 ---
@@ -31,13 +32,13 @@ MACs = C_out × H_out × W_out × C_in × K²
 
 Substituting conv1 values:
 
-| Symbol | Value | Meaning |
-|--------|-------|---------|
-| C_out  | 32    | output channels |
+| Symbol | Value | Meaning                                      |
+| ------ | ----- | -------------------------------------------- |
+| C_out  | 32    | output channels                              |
 | H_out  | 224   | output height: (224 + 2×1 − 3) ÷ 1 + 1 = 224 |
-| W_out  | 224   | output width |
-| C_in   | 3     | input channels (RGB) |
-| K      | 3     | kernel spatial dimension |
+| W_out  | 224   | output width                                 |
+| C_in   | 3     | input channels (RGB)                         |
+| K      | 3     | kernel spatial dimension                     |
 
 ```
 MACs  = 32 × 224 × 224 × 3 × 3²
@@ -106,6 +107,7 @@ AI = FLOPs / Bytes_total
 ## 5. Roofline Interpretation
 
 For a modern Apple M-series CPU:
+
 - Peak FP32 throughput: ~2.6 TFLOP/s (M1) — see Apple spec
 - Peak memory bandwidth: ~68.25 GB/s (M1 unified memory) — see Apple spec
 - Ridge point: 2600 GFLOP/s ÷ 68.25 GB/s ≈ **38.1 FLOP/byte**
@@ -113,15 +115,3 @@ For a modern Apple M-series CPU:
 Since conv1's AI (12.34 FLOP/byte) is **left of the ridge point (38.1 FLOP/byte)**, the kernel is **memory-bandwidth bound** on this platform.
 
 This motivates the hardware accelerator design: by switching weights from FP32 (4 bytes) to 1-bit (0.125 bytes), the weight memory traffic drops 32×, shifting the AI dramatically to the right toward or beyond the ridge point.
-
----
-
-## 6. Whole-Model AI (Reference)
-
-| Metric | Value |
-|--------|-------|
-| Total FLOPs (all layers) | 1,011,549,572 |
-| Total parameter memory (FP32) | 0.36 MB |
-| Whole-model AI (params-only estimate) | 1,035.32 FLOP/byte |
-
-> This whole-model AI is an optimistic upper bound — it counts only parameter bytes, not activation traffic. The per-kernel conv1 AI (12.34 FLOP/byte) is the operationally relevant number for roofline placement.
