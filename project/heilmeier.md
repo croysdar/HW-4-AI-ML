@@ -1,6 +1,6 @@
 1. What are you trying to do? Articulate your objectives using absolutely no jargon.
 
-I am building a highly efficient image-recognition system for remote, battery-powered wildlife trail cameras. My objective is to create a specialized microchip that acts as a continuous, ultra-low-power smart filter, simply asking: "Is there an animal in this photo, or is it empty?" Doing this instantly with very little energy allows the camera to actively scan for all types of wildlife—including cold-blooded reptiles that defeat traditional heat sensors—while running continuously for months on a small solar panel without an internet connection.
+I am building a highly efficient image-recognition system for remote, battery-powered wildlife trail cameras using a Binary Neural Network (BNN) algorithm. My objective is to create a specialized microchip that acts as a continuous, ultra-low-power smart filter, simply asking: "Is there an animal in this photo, or is it empty?" By specifically accelerating the network's BinarizeConv2d kernel in hardware, it can perform this check instantly with very little energy. This allows the camera to actively scan for all types of wildlife—including cold-blooded reptiles that defeat traditional heat sensors—while running continuously for months on a small solar panel without an internet connection.
 
 2. How is it done today, and what are the limits of current practice?
 
