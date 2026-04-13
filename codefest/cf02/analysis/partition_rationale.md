@@ -33,3 +33,5 @@ To resolve this bottleneck, we will partition the system as follows:
 By utilizing native 1-bit storage in the accelerator, the data transfer volume per operation drops drastically. This shifts the kernel’s arithmetic intensity from 12.34 FLOP/byte to approximately **394.8 FLOP/byte**.
 
 As shown in `roofline_project.png`, this shift safely crosses the 38.1 FLOP/byte ridge point, moving the workload into the **compute-bound region**. We target a conservative hardware design point of **150 FLOP/byte at 1,200 GFLOP/s**, eliminating the memory wall and maximizing throughput.
+
+To sustain this 1,200 GFLOP/s target throughput at an arithmetic intensity of 150 FLOP/byte, the required memory bandwidth is **8.0 GB/s** (1200 GFLOP/s ÷ 150 FLOP/byte). We have chosen a 256-bit AXI4-Stream interface clocked at 300 MHz, providing a rated theoretical bandwidth of **9.6 GB/s**. Because the rated 9.6 GB/s exceeds the required 8.0 GB/s, the accelerator successfully avoids becoming interface-bound.
