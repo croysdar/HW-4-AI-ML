@@ -1,0 +1,62 @@
+============================================================
+NCU PROFILE — gemm_naive
+============================================================
+==PROF== Connected to process 7544 (/content/naive)
+==PROF== Profiling "gemm_naive" - 0: 0%....50%....100% - 6 passes
+==PROF== Profiling "gemm_naive" - 1: 0%....50%....100% - 6 passes
+Naive GEMM  N=1024  time=1418.760 ms  Achieved=1.51 GFLOP/s
+Verifying top-left 4x4 corner against CPU reference...
+Max absolute error (4x4 corner): 3.051758e-05
+Verification PASSED
+==PROF== Disconnected from process 7544
+[7544] naive@127.0.0.1
+  gemm_naive(const float *, const float *, float *, int) (64, 64, 1)x(16, 16, 1), Context 1, Stream 7, Device 0, CC 7.5
+    Section: Command line profiler metrics
+    ------------------------------------------------------ ----------- ------------
+    Metric Name                                            Metric Unit Metric Value
+    ------------------------------------------------------ ----------- ------------
+    gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed           %         7.23
+    sm__throughput.avg.pct_of_peak_sustained_elapsed                 %        62.51
+    ------------------------------------------------------ ----------- ------------
+
+  gemm_naive(const float *, const float *, float *, int) (64, 64, 1)x(16, 16, 1), Context 1, Stream 7, Device 0, CC 7.5
+    Section: Command line profiler metrics
+    ------------------------------------------------------ ----------- ------------
+    Metric Name                                            Metric Unit Metric Value
+    ------------------------------------------------------ ----------- ------------
+    gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed           %         7.23
+    sm__throughput.avg.pct_of_peak_sustained_elapsed                 %        62.48
+    ------------------------------------------------------ ----------- ------------
+
+
+
+============================================================
+NCU PROFILE — gemm_tiled
+============================================================
+==PROF== Connected to process 7610 (/content/tiled)
+==PROF== Profiling "gemm_tiled" - 0: 0%....50%....100% - 6 passes
+==PROF== Profiling "gemm_tiled" - 1: 0%....50%....100% - 6 passes
+Tiled GEMM  N=1024  T=8  time=1430.502 ms  Achieved=1.50 GFLOP/s
+Verifying top-left 4x4 corner against CPU reference...
+Max absolute error (4x4 corner): 3.051758e-05
+Verification PASSED
+==PROF== Disconnected from process 7610
+[7610] tiled@127.0.0.1
+  gemm_tiled(const float *, const float *, float *, int) (128, 128, 1)x(8, 8, 1), Context 1, Stream 7, Device 0, CC 7.5
+    Section: Command line profiler metrics
+    ------------------------------------------------------ ----------- ------------
+    Metric Name                                            Metric Unit Metric Value
+    ------------------------------------------------------ ----------- ------------
+    gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed           %         5.84
+    sm__throughput.avg.pct_of_peak_sustained_elapsed                 %        55.19
+    ------------------------------------------------------ ----------- ------------
+
+  gemm_tiled(const float *, const float *, float *, int) (128, 128, 1)x(8, 8, 1), Context 1, Stream 7, Device 0, CC 7.5
+    Section: Command line profiler metrics
+    ------------------------------------------------------ ----------- ------------
+    Metric Name                                            Metric Unit Metric Value
+    ------------------------------------------------------ ----------- ------------
+    gpu__dram_throughput.avg.pct_of_peak_sustained_elapsed           %         5.91
+    sm__throughput.avg.pct_of_peak_sustained_elapsed                 %        55.19
+    ------------------------------------------------------ ----------- ------------
+
