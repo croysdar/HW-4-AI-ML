@@ -1,2 +1,4 @@
 /project/images/*
+/project/data_20k/*
 *.pth
+*.zip
