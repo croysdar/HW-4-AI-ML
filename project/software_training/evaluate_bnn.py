@@ -28,10 +28,10 @@ from torch.utils.data import DataLoader
 
 # Import model definition from the training script
 import sys
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from bnn_serengeti2 import (
     BNNClassifier, _transform, CHECKPOINT, DEVICE,
-    _BLANK_IDX, _NONBLANK_IDX
+    _BLANK_IDX, _NONBLANK_IDX, _tta_probs,
 )
 
 # ── Metadata reconstruction ───────────────────────────────────────────────────
@@ -122,7 +122,7 @@ def _time_of_day(date_str: str) -> str:
 
 
 # ── Inference ─────────────────────────────────────────────────────────────────
-def run_evaluation(data_root: str, metadata_path: str, checkpoint: str, threshold: float = 0.5):
+def run_evaluation(data_root: str, metadata_path: str, checkpoint: str, threshold: float = 0.5, use_tta: bool = False):
     test_dir = Path(data_root) / "test"
     if not test_dir.exists():
         raise FileNotFoundError(f"Test directory not found: {test_dir}")
@@ -151,13 +151,18 @@ def run_evaluation(data_root: str, metadata_path: str, checkpoint: str, threshol
         "unknown": {"tp": 0, "tn": 0, "fp": 0, "fn": 0},
     }
 
+    print(f"  TTA: {'enabled (4 views: orig, hflip, bright±0.15)' if use_tta else 'disabled'}\n")
+
     img_index = 0
     with torch.no_grad():
         for imgs, labels in loader:
-            imgs   = imgs.to(DEVICE)
-            probs  = torch.softmax(model(imgs), dim=1).cpu()
+            imgs  = imgs.to(DEVICE)
+            if use_tta:
+                probs = _tta_probs(model, imgs).cpu()
+            else:
+                probs = torch.softmax(model(imgs), dim=1).cpu()
             # Apply threshold: predict ANIMAL only if p(animal) >= threshold
-            preds  = (probs[:, _NONBLANK_IDX] >= threshold).long()
+            preds = (probs[:, _NONBLANK_IDX] >= threshold).long()
 
             for pred, label in zip(preds.tolist(), labels.tolist()):
                 actual_animal = (label == _NONBLANK_IDX)
@@ -254,12 +259,14 @@ if __name__ == "__main__":
                         help=f"Model checkpoint .pth (default: {CHECKPOINT})")
     parser.add_argument("--threshold", type=float, default=None, metavar="T",
                         help="p(animal) threshold (default: sweep 0.5, 0.6, 0.7)")
+    parser.add_argument("--tta", action="store_true",
+                        help="Enable test-time augmentation (4 views averaged)")
     args = parser.parse_args()
 
     if args.threshold is not None:
-        run_evaluation(args.data_root, args.metadata, args.checkpoint, args.threshold)
+        run_evaluation(args.data_root, args.metadata, args.checkpoint, args.threshold, args.tta)
     else:
         # Sweep common thresholds so the tradeoff is visible at a glance
         for t in [0.5, 0.6, 0.7]:
             print(f"\n{'▶'*3}  THRESHOLD = {t}  {'◀'*3}")
-            run_evaluation(args.data_root, args.metadata, args.checkpoint, t)
+            run_evaluation(args.data_root, args.metadata, args.checkpoint, t, args.tta)
