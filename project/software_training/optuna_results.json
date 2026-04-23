@@ -1,0 +1,176 @@
+{
+  "best_val_acc": 85.64742589703589,
+  "best_params": {
+    "lr": 0.0007636290331793739,
+    "weight_decay": 0.008152843673110739,
+    "blank_weight": 1.2727374508106508,
+    "grad_clip": 0.7751067647801507
+  },
+  "all_trials": [
+    {
+      "number": 0,
+      "val_acc": 79.79719188767551,
+      "params": {
+        "lr": 0.00036544523552132444,
+        "weight_decay": 0.044635901521768134,
+        "blank_weight": 2.0979909127171075,
+        "grad_clip": 1.397987726295555
+      },
+      "state": "TrialState.COMPLETE"
+    },
+    {
+      "number": 1,
+      "val_acc": 82.29329173166927,
+      "params": {
+        "lr": 0.0002570883195054887,
+        "weight_decay": 0.007160849144555759,
+        "blank_weight": 1.0871254182522991,
+        "grad_clip": 1.7992642186624028
+      },
+      "state": "TrialState.COMPLETE"
+    },
+    {
+      "number": 2,
+      "val_acc": 84.3213728549142,
+      "params": {
+        "lr": 0.0005262490902114901,
+        "weight_decay": 0.025529516046973785,
+        "blank_weight": 1.0308767414437037,
+        "grad_clip": 1.9548647782429915
+      },
+      "state": "TrialState.COMPLETE"
+    },
+    {
+      "number": 3,
+      "val_acc": 85.64742589703589,
+      "params": {
+        "lr": 0.0007636290331793739,
+        "weight_decay": 0.008152843673110739,
+        "blank_weight": 1.2727374508106508,
+        "grad_clip": 0.7751067647801507
+      },
+      "state": "TrialState.COMPLETE"
+    },
+    {
+      "number": 4,
+      "val_acc": 74.49297971918877,
+      "params": {
+        "lr": 0.0003263519391284683,
+        "weight_decay": 0.016738881542579662,
+        "blank_weight": 1.6479175279631737,
+        "grad_clip": 0.9368437102970628
+      },
+      "state": "TrialState.PRUNED"
+    },
+    {
+      "number": 5,
+      "val_acc": 84.12636505460219,
+      "params": {
+        "lr": 0.0005354227448429182,
+        "weight_decay": 0.006893882309676883,
+        "blank_weight": 1.4382169728028273,
+        "grad_clip": 1.0495427649405376
+      },
+      "state": "TrialState.COMPLETE"
+    },
+    {
+      "number": 6,
+      "val_acc": 75.31201248049922,
+      "params": {
+        "lr": 0.0004166863122305893,
+        "weight_decay": 0.030489195547657565,
+        "blank_weight": 1.2995106732375397,
+        "grad_clip": 1.2713516576204174
+      },
+      "state": "TrialState.PRUNED"
+    },
+    {
+      "number": 7,
+      "val_acc": 76.32605304212169,
+      "params": {
+        "lr": 0.0005189314707755923,
+        "weight_decay": 0.005564426587452866,
+        "blank_weight": 1.9113172778521577,
+        "grad_clip": 0.7557861855309373
+      },
+      "state": "TrialState.PRUNED"
+    },
+    {
+      "number": 8,
+      "val_acc": 72.30889235569423,
+      "params": {
+        "lr": 0.00022207471217033632,
+        "weight_decay": 0.044448339535094646,
+        "blank_weight": 2.448448049611839,
+        "grad_clip": 1.7125960221746916
+      },
+      "state": "TrialState.PRUNED"
+    },
+    {
+      "number": 9,
+      "val_acc": 73.71294851794072,
+      "params": {
+        "lr": 0.0003265471390937588,
+        "weight_decay": 0.006260977143530196,
+        "blank_weight": 2.026349539768235,
+        "grad_clip": 1.1602287406094018
+      },
+      "state": "TrialState.PRUNED"
+    },
+    {
+      "number": 10,
+      "val_acc": 56.47425897035881,
+      "params": {
+        "lr": 0.0009154868069571305,
+        "weight_decay": 0.01155307726815254,
+        "blank_weight": 1.5530931590816461,
+        "grad_clip": 0.5269428134222294
+      },
+      "state": "TrialState.PRUNED"
+    },
+    {
+      "number": 11,
+      "val_acc": 75.89703588143526,
+      "params": {
+        "lr": 0.000753297343417076,
+        "weight_decay": 0.019419217546023604,
+        "blank_weight": 1.0127232314554737,
+        "grad_clip": 1.965271769598775
+      },
+      "state": "TrialState.PRUNED"
+    },
+    {
+      "number": 12,
+      "val_acc": 85.25741029641186,
+      "params": {
+        "lr": 0.0006663948678805923,
+        "weight_decay": 0.010179767330885835,
+        "blank_weight": 1.2554273345133464,
+        "grad_clip": 1.5431957396846587
+      },
+      "state": "TrialState.COMPLETE"
+    },
+    {
+      "number": 13,
+      "val_acc": 78.90015600624025,
+      "params": {
+        "lr": 0.0007227664310228185,
+        "weight_decay": 0.01047078909472309,
+        "blank_weight": 1.3109661383849442,
+        "grad_clip": 1.5198652063430202
+      },
+      "state": "TrialState.PRUNED"
+    },
+    {
+      "number": 14,
+      "val_acc": 75.74102964118565,
+      "params": {
+        "lr": 0.0006747003617364836,
+        "weight_decay": 0.01034658012469907,
+        "blank_weight": 1.242164313914905,
+        "grad_clip": 0.7650549698594702
+      },
+      "state": "TrialState.PRUNED"
+    }
+  ]
+}

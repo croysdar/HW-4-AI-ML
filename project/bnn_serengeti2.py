@@ -10,11 +10,12 @@ Architecture mirrors the hardware BNN Accelerator Chiplet design
   Host CPU  : Data load · BatchNorm2d · Pooling · Linear (SW partition)
   Chiplet HW: BinarizeConv2d engine (3 layers) · XNOR+Popcount · spatial logic
 
-  BinarizeConv2d(3→32,   3×3, stride=1, pad=1) → BN32 → sign  → [B,32,224,224]
-  BinarizeConv2d(32→64,  3×3, stride=2, pad=1) → BN64 → sign  → [B,64,112,112]
-  BinarizeConv2d(64→128, 3×3, stride=2, pad=1) → BN128 → sign → [B,128,56,56]
-  AdaptiveAvgPool2d(1×1)                                        → [B,128]
-  Linear(128→2)                                                 → logits
+  Conv2d(3→32,            3×3, stride=1, pad=1) → BN32          → [B,32,224,224]  8-bit
+  BinarizeConv2d(32→64,  3×3, stride=2, pad=1) → BN64 → sign  → [B,64,112,112]  1-bit
+  BinarizeConv2d(64→128, 3×3, stride=2, pad=1) → BN128 → sign → [B,128,56,56]   1-bit
+  BinarizeConv2d(128→256,3×3, stride=2, pad=1) → BN256 → sign → [B,256,28,28]   1-bit
+  AdaptiveAvgPool2d(1×1)                                        → [B,256]
+  Linear(256→2)                                                 → logits
 
 STE (Straight-Through Estimator): enables gradient flow through sign().
 Weight clipping to [-1, 1] after each step stabilizes BNN training.
@@ -25,6 +26,8 @@ Usage:
 """
 
 import os
+import sys
+import time
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"  # macOS OpenMP conflict workaround
 
 import torch
@@ -33,6 +36,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from PIL import Image
+from tqdm import tqdm
 
 # ── Device ────────────────────────────────────────────────────────────────────
 if torch.backends.mps.is_available():
@@ -50,10 +54,13 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_ROOT   = os.path.join(_SCRIPT_DIR, "images", "archive")
 CHECKPOINT  = os.path.join(_SCRIPT_DIR, "bnn_serengeti2.pth")
 
-BATCH_SIZE = 32
-EPOCHS     = 10
-LR         = 1e-3
-IMG_SIZE   = 224
+BATCH_SIZE      = 32    # physical batch size (GPU memory)
+ACCUM_STEPS     = 4     # gradient accumulation → effective batch = 32 × 4 = 128
+EPOCHS          = 25
+LR              = 7.64e-4  # Optuna best (trial 3, 85.6% in 10 epochs)
+IMG_SIZE        = 224
+EARLY_STOP_PAT  = 7    # stop if val acc doesn't improve for this many epochs
+GRAD_CLIP       = 0.775  # Optuna best (trial 3)
 
 # ImageFolder sorts classes alphabetically: blank=0, non_blank=1
 _BLANK_IDX    = 0
@@ -103,22 +110,27 @@ class BNNClassifier(nn.Module):
 
     def __init__(self, num_classes: int = 2):
         super().__init__()
-        self.conv1 = BinarizeConv2d(3,   32,  3, stride=1, padding=1, bias=False)
+        # Conv1: 8-bit — standard conv preserves high-fidelity spatial features
+        self.conv1 = nn.Conv2d(3,   32,  3, stride=1, padding=1, bias=False)
         self.bn1   = nn.BatchNorm2d(32)
+        # Conv2–4: 1-bit BNN — XNOR+Popcount engine on chiplet
         self.conv2 = BinarizeConv2d(32,  64,  3, stride=2, padding=1, bias=False)
         self.bn2   = nn.BatchNorm2d(64)
         self.conv3 = BinarizeConv2d(64,  128, 3, stride=2, padding=1, bias=False)
         self.bn3   = nn.BatchNorm2d(128)
+        self.conv4 = BinarizeConv2d(128, 256, 3, stride=2, padding=1, bias=False)
+        self.bn4   = nn.BatchNorm2d(256)
         self.pool  = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc    = nn.Linear(128, num_classes)
+        self.fc    = nn.Linear(256, num_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = binarize(self.bn1(self.conv1(x)))   # [B,32,224,224]
-        x = binarize(self.bn2(self.conv2(x)))   # [B,64,112,112]
-        x = binarize(self.bn3(self.conv3(x)))   # [B,128,56,56]
-        x = self.pool(x)                         # [B,128,1,1]
-        x = torch.flatten(x, 1)                 # [B,128]
-        return self.fc(x)                        # [B,2]
+        x = self.bn1(self.conv1(x))              # [B,32,224,224] — 8-bit, no binarize
+        x = binarize(self.bn2(self.conv2(x)))    # [B,64,112,112] — 1-bit
+        x = binarize(self.bn3(self.conv3(x)))    # [B,128,56,56]  — 1-bit
+        x = binarize(self.bn4(self.conv4(x)))    # [B,256,28,28]  — 1-bit
+        x = self.pool(x)                          # [B,256,1,1]
+        x = torch.flatten(x, 1)                  # [B,256]
+        return self.fc(x)                         # [B,2]
 
 
 # ── Transforms ────────────────────────────────────────────────────────────────
@@ -129,16 +141,32 @@ _transform = transforms.Compose([
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
 ])
 
+# Training-only: augmentation improves generalization across lighting/scenes.
+# Flip and slight colour jitter are safe for blank-vs-animal — they don't
+# change whether an animal is present. No geometric distortions that could
+# confuse the spatial structure the hardware relies on.
+_train_transform = transforms.Compose([
+    transforms.Resize((IMG_SIZE, IMG_SIZE)),
+    transforms.RandomHorizontalFlip(),
+    transforms.ColorJitter(brightness=0.2, contrast=0.2),
+    # Simulate IR/nighttime greyscale at low probability.
+    # p=0.2 keeps most training in color while exposing the model to
+    # monochrome empty scenes — the main gap in the night distribution.
+    transforms.RandomGrayscale(p=0.2),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+])
+
 
 # ── Dataset helpers ───────────────────────────────────────────────────────────
 def make_loaders(data_root: str = DATA_ROOT):
-    train_ds = datasets.ImageFolder(os.path.join(data_root, "train"), transform=_transform)
+    train_ds = datasets.ImageFolder(os.path.join(data_root, "train"), transform=_train_transform)
     test_ds  = datasets.ImageFolder(os.path.join(data_root, "test"),  transform=_transform)
     print(f"Classes : {train_ds.classes}  (blank=0, non_blank=1)")
     print(f"Train   : {len(train_ds):,} images")
     print(f"Test    : {len(test_ds):,}  images")
-    # num_workers=0 avoids fork/MPS conflicts on macOS
-    kw = dict(batch_size=BATCH_SIZE, num_workers=0, pin_memory=False)
+    # num_workers=2: workers only do CPU image loading/transforms, never touch MPS
+    kw = dict(batch_size=BATCH_SIZE, num_workers=2, persistent_workers=True, pin_memory=False)
     return (
         DataLoader(train_ds, shuffle=True,  **kw),
         DataLoader(test_ds,  shuffle=False, **kw),
@@ -146,88 +174,186 @@ def make_loaders(data_root: str = DATA_ROOT):
 
 
 # ── Evaluate ──────────────────────────────────────────────────────────────────
-def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module):
+def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module,
+             threshold: float = 0.5):
+    """Returns (loss, accuracy, tp, tn, fp, fn)."""
     model.eval()
-    total_loss, correct, n = 0.0, 0, 0
+    total_loss = 0.0
+    tp = tn = fp = fn = 0
     with torch.no_grad():
         for imgs, labels in loader:
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
-            logits       = model(imgs)
-            total_loss  += criterion(logits, labels).item() * imgs.size(0)
-            correct     += (logits.argmax(1) == labels).sum().item()
-            n           += imgs.size(0)
-    return total_loss / n, 100.0 * correct / n
+            probs        = torch.softmax(model(imgs), dim=1)
+            preds        = (probs[:, _NONBLANK_IDX] >= threshold).long()
+            total_loss  += criterion(model(imgs), labels).item() * imgs.size(0)
+            for pred, label in zip(preds.tolist(), labels.tolist()):
+                a = (label == _NONBLANK_IDX)
+                p = (pred  == _NONBLANK_IDX)
+                if   a and p:     tp += 1
+                elif not a and not p: tn += 1
+                elif not a and p: fp += 1
+                else:             fn += 1
+    n   = tp + tn + fp + fn
+    acc = 100.0 * (tp + tn) / n
+    return total_loss / n, acc, tp, tn, fp, fn
 
 
 # ── Training Loop ─────────────────────────────────────────────────────────────
-def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT) -> nn.Module:
+def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
+          resume: bool = False, args_best_acc: float = 0.0) -> nn.Module:
     train_loader, test_loader = make_loaders(data_root)
     model     = BNNClassifier().to(DEVICE)
-    optimizer = torch.optim.Adam(model.parameters(), lr=LR)
-    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=0.00815)  # Optuna best
+    # Upweight blank class to penalize false alarms — addresses night IR blank misclassification.
+    # Weight [1.5, 1.0] means model pays 1.5× penalty for calling a blank image "animal".
+    class_weights = torch.tensor([1.27, 1.0]).to(DEVICE)  # Optuna best
+    criterion = nn.CrossEntropyLoss(weight=class_weights)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=num_epochs, eta_min=1e-6
+    )
+
+    best_val_acc = 0.0
+    no_improve   = 0
+    start_epoch  = 1
+
+    if resume and os.path.exists(CHECKPOINT):
+        ckpt = torch.load(CHECKPOINT, map_location=DEVICE, weights_only=False)
+        if "model" in ckpt:
+            # New format — full restore
+            model.load_state_dict(ckpt["model"])
+            optimizer.load_state_dict(ckpt["optimizer"])
+            scheduler.load_state_dict(ckpt["scheduler"])
+            best_val_acc = ckpt["best_val_acc"]
+            start_epoch  = ckpt["epoch"] + 1
+            print(f"Resumed from epoch {ckpt['epoch']} — best val acc so far: {best_val_acc:.1f}%")
+        else:
+            # Old format (weights only) — load weights, fresh optimizer/scheduler
+            model.load_state_dict(ckpt)
+            best_val_acc = args_best_acc if args_best_acc > 0 else 0.0
+            print("Loaded weights from checkpoint (old format — optimizer state unavailable).")
+            print(f"Warm restart from trained weights. Will only save if val acc > {best_val_acc:.1f}%")
+    elif resume:
+        print("No checkpoint found — starting from scratch.")
 
     print(f"\n{'Epoch':>6}  {'Train Loss':>10}  {'Train Acc':>9}  "
-          f"{'Val Loss':>9}  {'Val Acc':>8}")
-    print("-" * 55)
+          f"{'Val Loss':>9}  {'Val Acc':>8}  {'Recall':>7}  {'FAR':>6}  {'Time':>6}  {'LR':>8}")
+    print(f"  (effective batch size = {BATCH_SIZE} × {ACCUM_STEPS} = {BATCH_SIZE * ACCUM_STEPS})")
+    print("-" * 93)
 
-    for epoch in range(1, num_epochs + 1):
+    for epoch in range(start_epoch, num_epochs + 1):
         model.train()
         run_loss, correct, n = 0.0, 0, 0
+        optimizer.zero_grad()
 
-        for imgs, labels in train_loader:
+        t0   = time.time()
+        pbar = tqdm(train_loader, desc=f"Epoch {epoch:>3}", unit="batch", leave=False, disable=not sys.stdout.isatty())
+        for step, (imgs, labels) in enumerate(pbar):
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
-            optimizer.zero_grad()
             logits = model(imgs)
             loss   = criterion(logits, labels)
-            loss.backward()
-            optimizer.step()
 
-            # Clip latent weights to [-1, 1] — stabilizes BNN binary training
-            with torch.no_grad():
-                for m in model.modules():
-                    if isinstance(m, BinarizeConv2d):
-                        m.weight.data.clamp_(-1.0, 1.0)
+            # Scale loss so accumulated gradients equal a true 128-image batch
+            (loss / ACCUM_STEPS).backward()
 
             run_loss += loss.item() * imgs.size(0)
             correct  += (logits.argmax(1) == labels).sum().item()
             n        += imgs.size(0)
+            pbar.set_postfix(loss=f"{run_loss/n:.4f}", acc=f"{100.*correct/n:.1f}%")
 
-        t_loss = run_loss / n
-        t_acc  = 100.0 * correct / n
-        v_loss, v_acc = evaluate(model, test_loader, criterion)
+            last_batch = (step + 1) == len(train_loader)
+            if (step + 1) % ACCUM_STEPS == 0 or last_batch:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
+                optimizer.step()
+                with torch.no_grad():
+                    for m in model.modules():
+                        if isinstance(m, BinarizeConv2d):
+                            m.weight.data.clamp_(-1.0, 1.0)
+                optimizer.zero_grad()
+
+        t_loss     = run_loss / n
+        t_acc      = 100.0 * correct / n
+        v_loss, v_acc, vtp, vtn, vfp, vfn = evaluate(model, test_loader, criterion)
+        recall     = 100.0 * vtp / (vtp + vfn) if (vtp + vfn) else 0.0
+        far        = 100.0 * vfp / (vfp + vtn) if (vfp + vtn) else 0.0
+        elapsed    = time.time() - t0
+        epoch_time = f"{int(elapsed//60)}m{int(elapsed%60):02d}s"
+        current_lr = optimizer.param_groups[0]["lr"]
+
+        scheduler.step()   # cosine decay steps once per epoch
+
+        if v_acc > best_val_acc:
+            best_val_acc = v_acc
+            no_improve   = 0
+            torch.save({
+                "epoch":        epoch,
+                "model":        model.state_dict(),
+                "optimizer":    optimizer.state_dict(),
+                "scheduler":    scheduler.state_dict(),
+                "best_val_acc": best_val_acc,
+            }, CHECKPOINT)
+            marker = " ✓"
+        else:
+            no_improve += 1
+            marker = ""
 
         print(f"{epoch:>6}  {t_loss:>10.4f}  {t_acc:>8.1f}%  "
-              f"{v_loss:>9.4f}  {v_acc:>7.1f}%")
+              f"{v_loss:>9.4f}  {v_acc:>7.1f}%  {recall:>6.1f}%  {far:>5.1f}%  {epoch_time:>6}  {current_lr:>8.2e}{marker}")
 
-    torch.save(model.state_dict(), CHECKPOINT)
-    print(f"\nCheckpoint saved → {CHECKPOINT}")
+        if no_improve >= EARLY_STOP_PAT:
+            print(f"\nEarly stopping — val acc hasn't improved for {EARLY_STOP_PAT} epochs.")
+            break
+
+    print(f"\nBest val accuracy : {best_val_acc:.1f}%")
+    print(f"Checkpoint saved  → {CHECKPOINT}")
     return model
+
+
+# ── Test-Time Augmentation ────────────────────────────────────────────────────
+def _tta_probs(model: nn.Module, tensor: torch.Tensor) -> torch.Tensor:
+    """
+    Run 4 augmented views of tensor through model and return averaged softmax probs.
+    Augmentations: original, horizontal flip, brightness +0.15, brightness -0.15.
+    Tensor is already normalized to [-1, 1].
+    """
+    views = [
+        tensor,
+        torch.flip(tensor, dims=[3]),
+        torch.clamp(tensor + 0.15, -1.0, 1.0),
+        torch.clamp(tensor - 0.15, -1.0, 1.0),
+    ]
+    with torch.no_grad():
+        probs = torch.stack([torch.softmax(model(v), dim=1) for v in views])
+    return probs.mean(dim=0)  # [B, 2]
 
 
 # ── Inference Helpers ─────────────────────────────────────────────────────────
 def load_model(path: str = CHECKPOINT) -> nn.Module:
     """Load a saved BNNClassifier from a .pth checkpoint."""
     model = BNNClassifier()
-    model.load_state_dict(torch.load(path, map_location=DEVICE, weights_only=True))
+    ckpt  = torch.load(path, map_location=DEVICE, weights_only=False)
+    model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
     model.to(DEVICE)
     model.eval()
     return model
 
 
-def confidence_check(image_path: str, model: nn.Module = None) -> tuple[str, float]:
+def confidence_check(
+    image_path: str,
+    model: nn.Module = None,
+    threshold: float = 0.5,
+    tta: bool = False,
+) -> tuple[str, float]:
     """
     Run inference on a single image and print the verdict.
 
     Args:
         image_path : Path to a .jpg (or any PIL-readable image).
         model      : BNNClassifier instance. Loads from CHECKPOINT if None.
+        threshold  : Minimum p(animal) to call ANIMAL DETECTED (default 0.5).
+        tta        : Enable test-time augmentation (4 views averaged, default False).
 
     Returns:
         (verdict, confidence_pct) — e.g. ("ANIMAL DETECTED", 87.3)
-
-    Example (Jupyter):
-        model = load_model()
-        confidence_check("my_photo.jpg", model)
     """
     if model is None:
         model = load_model()
@@ -235,13 +361,16 @@ def confidence_check(image_path: str, model: nn.Module = None) -> tuple[str, flo
     img    = Image.open(image_path).convert("RGB")
     tensor = _transform(img).unsqueeze(0).to(DEVICE)   # [1,3,224,224]
 
-    with torch.no_grad():
-        probs = torch.softmax(model(tensor), dim=1)[0]  # [2]
+    if tta:
+        probs = _tta_probs(model, tensor)[0]            # [2]
+    else:
+        with torch.no_grad():
+            probs = torch.softmax(model(tensor), dim=1)[0]  # [2]
 
-    blank_p    = probs[_BLANK_IDX].item()
     nonblank_p = probs[_NONBLANK_IDX].item()
+    blank_p    = probs[_BLANK_IDX].item()
 
-    if nonblank_p >= blank_p:
+    if nonblank_p >= threshold:
         verdict, confidence = "ANIMAL DETECTED", nonblank_p * 100
     else:
         verdict, confidence = "EMPTY", blank_p * 100
@@ -275,20 +404,33 @@ Examples:
                         help="Image path(s) to classify (used with 'check')")
     parser.add_argument("--epochs", type=int, default=EPOCHS,
                         help=f"Number of training epochs (default: {EPOCHS})")
+    parser.add_argument("--data-root", default=DATA_ROOT, metavar="DIR",
+                        help=f"Dataset root containing train/ and test/ (default: {DATA_ROOT})")
+    parser.add_argument("--threshold", type=float, default=0.5, metavar="T",
+                        help="Min p(animal) to call ANIMAL DETECTED (default: 0.5)")
+    parser.add_argument("--tta", action="store_true",
+                        help="Enable test-time augmentation for 'check' (4 views averaged)")
+    parser.add_argument("--resume", action="store_true",
+                        help="Resume training from existing checkpoint")
+    parser.add_argument("--best-acc", type=float, default=0.0, metavar="ACC",
+                        help="Known best val acc from old checkpoint (prevents overwriting with worse result)")
     args = parser.parse_args()
 
     if args.command == "train":
         print("\n" + "=" * 60)
         print("BNN Serengeti2 — Training")
         print("=" * 60)
-        train(num_epochs=args.epochs)
+        train(num_epochs=args.epochs, data_root=args.data_root,
+              resume=args.resume, args_best_acc=args.best_acc)
 
     elif args.command == "check":
         if not args.images:
             parser.error("'check' requires at least one image path.\n"
                          "  Example: python bnn_serengeti2.py check photo.jpg")
         model = load_model()
-        print(f"\n  {'Image':<40}  Result")
+        print(f"\n  Threshold: {args.threshold}  (raise to cut false alarms)")
+        print(f"  TTA: {'enabled (4 views)' if args.tta else 'disabled'}")
+        print(f"  {'Image':<40}  Result")
         print(f"  {'-'*40}  ------")
         for path in args.images:
-            confidence_check(path, model)
+            confidence_check(path, model, threshold=args.threshold, tta=args.tta)
