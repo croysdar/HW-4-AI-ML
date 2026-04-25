@@ -1,5 +1,6 @@
 /project/images/*
 /project/data_20k/*
 /project/data_combined/*
+/project/data_sequences/*
 *.pth
 *.zip
