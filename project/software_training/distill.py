@@ -34,6 +34,7 @@ Usage:
 import os
 import sys
 import time
+from tqdm import tqdm
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 from pathlib import Path
@@ -46,7 +47,7 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, models, transforms
 
 from bnn_serengeti2 import (
-    BNNClassifier, make_loaders, evaluate,
+    BNNClassifier, evaluate,
     DEVICE, BATCH_SIZE, ACCUM_STEPS, BinarizeConv2d,
     LR, GRAD_CLIP,
 )
@@ -56,17 +57,18 @@ TEACHER_CKPT    = _SCRIPT_DIR / "bnn_teacher.pth"
 STUDENT_CKPT    = _SCRIPT_DIR / "bnn_distilled.pth"
 
 # Distillation hyperparameters
-TEMPERATURE  = 4.0   # soften teacher distribution; higher = softer
-ALPHA        = 0.7   # weight on KL loss; 1-alpha on hard CE loss
+TEMPERATURE  = 2.0   # soften teacher distribution; higher = softer
+ALPHA        = 0.3   # weight on KL loss; 1-alpha on hard CE loss
 BLANK_WEIGHT = 1.27  # Optuna best — applied to hard CE term only
 
-EARLY_STOP_PAT = 7
+EARLY_STOP_PAT         = 7
+EARLY_STOP_PAT_TEACHER = 12   # teacher needs more runway
 
 
 # ── Teacher model ─────────────────────────────────────────────────────────────
 def make_teacher(num_classes: int = 2) -> nn.Module:
-    """ResNet-18 with ImageNet weights, final FC replaced for binary task."""
-    model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+    """ResNet-50 with ImageNet weights, final FC replaced for binary task."""
+    model = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
     model.fc = nn.Linear(model.fc.in_features, num_classes)
     return model
 
@@ -120,7 +122,7 @@ def _make_loaders_custom(data_root: str):
 # ── Phase 1: Train teacher ────────────────────────────────────────────────────
 def train_teacher(data_root: str, num_epochs: int):
     print(f"\n{'='*60}")
-    print("PHASE 1 — Teacher Training (ResNet-18 fine-tune)")
+    print("PHASE 1 — Teacher Training (ResNet-50 fine-tune)")
     print(f"{'='*60}")
     print(f"Device   : {DEVICE}")
     print(f"Epochs   : {num_epochs}")
@@ -149,7 +151,9 @@ def train_teacher(data_root: str, num_epochs: int):
         model.train()
         total_loss = total_correct = total_n = 0
 
-        for imgs, labels in train_loader:
+        pbar = tqdm(train_loader, desc=f"Epoch {epoch:>3}", unit="batch",
+                    leave=False, disable=not sys.stdout.isatty())
+        for imgs, labels in pbar:
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
             optimizer.zero_grad()
             logits = model(imgs)
@@ -160,6 +164,7 @@ def train_teacher(data_root: str, num_epochs: int):
             total_loss    += loss.item() * len(labels)
             total_correct += (logits.argmax(1) == labels).sum().item()
             total_n       += len(labels)
+            pbar.set_postfix(loss=f"{total_loss/total_n:.4f}", acc=f"{100.*total_correct/total_n:.1f}%")
 
         tr_loss = total_loss / total_n
         tr_acc  = 100.0 * total_correct / total_n
@@ -192,8 +197,8 @@ def train_teacher(data_root: str, num_epochs: int):
                         "best_val_acc": best_val_acc}, TEACHER_CKPT)
         else:
             no_improve += 1
-            if no_improve >= EARLY_STOP_PAT:
-                print(f"\nEarly stopping — no improvement for {EARLY_STOP_PAT} epochs.")
+            if no_improve >= EARLY_STOP_PAT_TEACHER:
+                print(f"\nEarly stopping — no improvement for {EARLY_STOP_PAT_TEACHER} epochs.")
                 break
 
     print(f"\nTeacher best val accuracy: {best_val_acc:.1f}%")
@@ -260,7 +265,9 @@ def train_student(data_root: str, num_epochs: int, resume: bool = False):
         optimizer.zero_grad()
         total_loss = total_correct = total_n = 0
 
-        for step, (imgs, labels) in enumerate(train_loader):
+        pbar = tqdm(train_loader, desc=f"Epoch {epoch:>3}", unit="batch",
+                    leave=False, disable=not sys.stdout.isatty())
+        for step, (imgs, labels) in enumerate(pbar):
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
 
             with torch.no_grad():
@@ -283,13 +290,16 @@ def train_student(data_root: str, num_epochs: int, resume: bool = False):
             total_loss    += loss.item() * len(labels)
             total_correct += (student_logits.argmax(1) == labels).sum().item()
             total_n       += len(labels)
+            pbar.set_postfix(loss=f"{total_loss/total_n:.4f}", acc=f"{100.*total_correct/total_n:.1f}%")
 
         tr_loss = total_loss / total_n
         tr_acc  = 100.0 * total_correct / total_n
 
         # Reuse evaluate() from bnn_serengeti2 for val metrics
         val_criterion = nn.CrossEntropyLoss(weight=class_weights)
-        val_loss, va_acc, recall, far, _, _ = evaluate(student, val_loader, val_criterion)
+        val_loss, va_acc, tp, tn, fp, fn = evaluate(student, val_loader, val_criterion)
+        recall = 100.0 * tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        far    = 100.0 * fp / (fp + tn) if (fp + tn) > 0 else 0.0
 
         scheduler.step()
 
@@ -332,7 +342,7 @@ def main():
     )
     parser.add_argument("phase", choices=["teacher", "student"],
                         help="'teacher' to fine-tune ResNet-18; 'student' to distill BNNClassifier")
-    parser.add_argument("--data-root", default="project/data_combined", metavar="DIR")
+    parser.add_argument("--data-root", default="project/data_20k", metavar="DIR")
     parser.add_argument("--epochs",    type=int, default=None,
                         help="Training epochs (default: 20 for teacher, 50 for student)")
     parser.add_argument("--resume",    action="store_true",
@@ -340,7 +350,7 @@ def main():
     args = parser.parse_args()
 
     if args.phase == "teacher":
-        train_teacher(args.data_root, args.epochs or 20)
+        train_teacher(args.data_root, args.epochs or 30)
     else:
         train_student(args.data_root, args.epochs or 50, resume=args.resume)
 
