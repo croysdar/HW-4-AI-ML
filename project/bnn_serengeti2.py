@@ -56,6 +56,9 @@ _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_ROOT   = os.path.join(_SCRIPT_DIR, "data_20k")
 CHECKPOINT  = os.path.join(_SCRIPT_DIR, "bnn_serengeti2.pth")
 _SEQ_DIR    = os.path.join(_SCRIPT_DIR, "data_sequences")
+_BBOX_PATH  = os.path.join(_SCRIPT_DIR, "bbox_annotations.json")
+
+RRR_LAMBDA  = 0.0   # weight of RRR spatial loss; 0.0 = disabled
 
 BATCH_SIZE      = 32    # physical batch size (GPU memory)
 ACCUM_STEPS     = 4     # gradient accumulation → effective batch = 32 × 4 = 128
@@ -137,11 +140,21 @@ class BNNClassifier(nn.Module):
 
 
 # ── Transforms ────────────────────────────────────────────────────────────────
+_BANNER_ROWS = 7   # camera timestamp banner height in pixels (at 224×224)
+
+class _MaskBanner(torch.nn.Module):
+    """Zero the top N rows of a tensor to remove the camera timestamp banner."""
+    def forward(self, t: torch.Tensor) -> torch.Tensor:
+        t = t.clone()
+        t[:, :_BANNER_ROWS, :] = 0.0
+        return t
+
 # Normalize to [-1, 1] so that sign() binarizes near the decision boundary.
 _transform = transforms.Compose([
     transforms.Resize((IMG_SIZE, IMG_SIZE)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+    _MaskBanner(),
 ])
 
 # Training-only: augmentation improves generalization across lighting/scenes.
@@ -162,6 +175,7 @@ _train_transform = transforms.Compose([
     # from relying on any single texture region — directly targets the scattered
     # rock/shadow activations seen in hard-blank Grad-CAM heatmaps.
     transforms.RandomErasing(p=0.3, scale=(0.02, 0.15), ratio=(0.3, 3.3), value=0),
+    _MaskBanner(),
 ])
 
 
@@ -194,6 +208,81 @@ def _hard_blank_far(model: nn.Module, frames: torch.Tensor,
             fp   += int(dets.sum())
             tn   += int((~dets).sum())
     return 100.0 * fp / (fp + tn) if (fp + tn) else 0.0
+
+
+# ── RRR spatial loss ─────────────────────────────────────────────────────────
+def _load_bboxes(path: str = _BBOX_PATH) -> dict:
+    """Load bbox_annotations.json; returns {} if file missing."""
+    if not os.path.exists(path):
+        return {}
+    with open(path) as f:
+        return json.load(f)
+
+
+class _StemSubset(torch.utils.data.Dataset):
+    """Wraps an ImageFolder or Subset to also return the image stem."""
+    def __init__(self, ds):
+        self.ds = ds
+
+    def __len__(self):
+        return len(self.ds)
+
+    def __getitem__(self, idx):
+        img, label = self.ds[idx]
+        if isinstance(self.ds, torch.utils.data.Subset):
+            path = self.ds.dataset.imgs[self.ds.indices[idx]][0]
+        else:
+            path = self.ds.imgs[idx][0]
+        return img, label, Path(path).stem
+
+
+def _bbox_mask(boxes: list, feat_size: int = 56) -> torch.Tensor:
+    """Build a binary [feat_size × feat_size] mask from a list of bbox dicts."""
+    mask = torch.zeros(feat_size, feat_size)
+    scale = feat_size / 224  # our stored images are 224×224
+    for b in boxes:
+        if not b.get("bbox"):
+            continue
+        x, y, w, h = b["bbox"]
+        ow = b.get("orig_width")  or 224
+        oh = b.get("orig_height") or 224
+        # Scale: orig → 224 → feat_size
+        sx, sy = 224 / ow * scale, 224 / oh * scale
+        x1 = max(0, int(x * sx))
+        y1 = max(0, int(y * sy))
+        x2 = min(feat_size, int((x + w) * sx) + 1)
+        y2 = min(feat_size, int((y + h) * sy) + 1)
+        if x2 > x1 and y2 > y1:
+            mask[y1:y2, x1:x2] = 1.0
+    return mask
+
+
+def _rrr_loss(feat_map: torch.Tensor, labels: torch.Tensor,
+              stems: list[str], bboxes: dict) -> torch.Tensor:
+    """
+    Right-for-the-Right-Reasons penalty on bn3 feature maps.
+    For each animal image in the batch that has a bbox annotation,
+    penalise attention (mean-channel ReLU activation) outside the bbox.
+    Returns a scalar loss (0 if no bbox-annotated animal images in batch).
+    """
+    penalties = []
+    for i, (label, stem) in enumerate(zip(labels.tolist(), stems)):
+        if label != _NONBLANK_IDX:
+            continue
+        info = bboxes.get(stem)
+        if not info:
+            continue
+        boxes = [b for b in info["boxes"] if b.get("bbox")]
+        if not boxes:
+            continue
+        mask = _bbox_mask(boxes, feat_size=feat_map.shape[-1]).to(feat_map.device)
+        attn = F.relu(feat_map[i]).mean(0)          # [H, W]
+        outside = (attn * (1.0 - mask)).sum()
+        total   = attn.sum() + 1e-8
+        penalties.append(outside / total)
+    if not penalties:
+        return feat_map.sum() * 0.0                 # zero with grad
+    return torch.stack(penalties).mean()
 
 
 # ── Dataset helpers ───────────────────────────────────────────────────────────
@@ -234,8 +323,8 @@ def make_loaders(data_root: str = DATA_ROOT):
     print(f"Test    : {len(test_ds):,}  images")
     kw = dict(batch_size=BATCH_SIZE, num_workers=2, persistent_workers=True, pin_memory=False)
     return (
-        DataLoader(train_ds, shuffle=True,  **kw),
-        DataLoader(test_ds,  shuffle=False, **kw),
+        DataLoader(_StemSubset(train_ds), shuffle=True,  **kw),
+        DataLoader(test_ds,               shuffle=False, **kw),
     )
 
 
@@ -266,7 +355,10 @@ def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module,
 
 # ── Training Loop ─────────────────────────────────────────────────────────────
 def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
-          resume: bool = False, args_best_acc: float = 0.0) -> nn.Module:
+          resume: bool = False, args_best_acc: float = 0.0,
+          rrr_lambda: float = RRR_LAMBDA,
+          warm_start: str | None = None,
+          patience: int = EARLY_STOP_PAT) -> nn.Module:
     train_loader, test_loader = make_loaders(data_root)
     model     = BNNClassifier().to(DEVICE)
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=0.00815)  # Optuna best
@@ -301,15 +393,29 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
     elif resume:
         print("No checkpoint found — starting from scratch.")
 
+    if warm_start and os.path.exists(warm_start):
+        ckpt = torch.load(warm_start, map_location=DEVICE, weights_only=False)
+        model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+        if isinstance(ckpt, dict) and "best_val_acc" in ckpt:
+            best_val_acc = ckpt["best_val_acc"]
+        print(f"Warm-start weights loaded from {warm_start} "
+              f"(must beat {best_val_acc:.1f}% to save)")
+
     hb_frames = _load_hard_blank_frames()
     if hb_frames is not None:
         print(f"  Hard-blank frames loaded: {len(hb_frames)} (from {_SEQ_DIR})")
 
-    hb_col = "  HB-FAR" if hb_frames is not None else ""
+    bboxes = _load_bboxes() if rrr_lambda > 0 else {}
+    if bboxes:
+        n_bbox = sum(1 for v in bboxes.values() if any(b.get("bbox") for b in v["boxes"]))
+        print(f"  BBox annotations loaded: {n_bbox:,} images  (RRR λ={rrr_lambda})")
+
+    hb_col  = "  HB-FAR" if hb_frames is not None else ""
+    rrr_col = "  RRR" if rrr_lambda > 0 else ""
     print(f"\n{'Epoch':>6}  {'Train Loss':>10}  {'Train Acc':>9}  "
-          f"{'Val Loss':>9}  {'Val Acc':>8}  {'Recall':>7}  {'FAR':>6}{hb_col}  {'Time':>6}  {'LR':>8}")
+          f"{'Val Loss':>9}  {'Val Acc':>8}  {'Recall':>7}  {'FAR':>6}{hb_col}{rrr_col}  {'Time':>6}  {'LR':>8}")
     print(f"  (effective batch size = {BATCH_SIZE} × {ACCUM_STEPS} = {BATCH_SIZE * ACCUM_STEPS})")
-    print("-" * (93 + (9 if hb_frames is not None else 0)))
+    print("-" * (93 + (9 if hb_frames is not None else 0) + (6 if rrr_lambda > 0 else 0)))
 
     for epoch in range(start_epoch, num_epochs + 1):
         model.train()
@@ -318,10 +424,25 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
 
         t0   = time.time()
         pbar = tqdm(train_loader, desc=f"Epoch {epoch:>3}", unit="batch", leave=False, disable=not sys.stdout.isatty())
-        for step, (imgs, labels) in enumerate(pbar):
+        epoch_rrr = 0.0
+        for step, (imgs, labels, stems) in enumerate(pbar):
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
+
+            # Register bn3 hook to capture feature maps for RRR loss
+            _bn3_feat = {}
+            if rrr_lambda > 0:
+                def _fwd_hook(m, inp, out):
+                    _bn3_feat["feat"] = out
+                _hook_handle = model.bn3.register_forward_hook(_fwd_hook)
+
             logits = model(imgs)
             loss   = criterion(logits, labels)
+
+            if rrr_lambda > 0:
+                _hook_handle.remove()
+                rrr = _rrr_loss(_bn3_feat["feat"], labels, stems, bboxes)
+                loss = loss + rrr_lambda * rrr
+                epoch_rrr += rrr.item()
 
             # Scale loss so accumulated gradients equal a true 128-image batch
             (loss / ACCUM_STEPS).backward()
@@ -368,12 +489,13 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
             no_improve += 1
             marker = ""
 
-        hb_str = f"  {hb_far:>5.1f}%" if hb_far is not None else ""
+        hb_str  = f"  {hb_far:>5.1f}%" if hb_far is not None else ""
+        rrr_str = f"  {epoch_rrr/len(train_loader):.3f}" if rrr_lambda > 0 else ""
         print(f"{epoch:>6}  {t_loss:>10.4f}  {t_acc:>8.1f}%  "
-              f"{v_loss:>9.4f}  {v_acc:>7.1f}%  {recall:>6.1f}%  {far:>5.1f}%{hb_str}  {epoch_time:>6}  {current_lr:>8.2e}{marker}")
+              f"{v_loss:>9.4f}  {v_acc:>7.1f}%  {recall:>6.1f}%  {far:>5.1f}%{hb_str}{rrr_str}  {epoch_time:>6}  {current_lr:>8.2e}{marker}")
 
-        if no_improve >= EARLY_STOP_PAT:
-            print(f"\nEarly stopping — val acc hasn't improved for {EARLY_STOP_PAT} epochs.")
+        if no_improve >= patience:
+            print(f"\nEarly stopping — val acc hasn't improved for {patience} epochs.")
             break
 
     print(f"\nBest val accuracy : {best_val_acc:.1f}%")
@@ -487,6 +609,12 @@ Examples:
                         help="Resume training from existing checkpoint")
     parser.add_argument("--best-acc", type=float, default=0.0, metavar="ACC",
                         help="Known best val acc from old checkpoint (prevents overwriting with worse result)")
+    parser.add_argument("--rrr-lambda", type=float, default=RRR_LAMBDA, metavar="λ",
+                        help=f"Weight for RRR spatial loss (0=disabled, try 0.1–0.5, default: {RRR_LAMBDA})")
+    parser.add_argument("--warm-start", default=None, metavar="CKPT",
+                        help="Load model weights only from checkpoint (fresh optimizer/scheduler)")
+    parser.add_argument("--patience", type=int, default=EARLY_STOP_PAT,
+                        help=f"Early stopping patience in epochs (default: {EARLY_STOP_PAT})")
     args = parser.parse_args()
 
     if args.command == "train":
@@ -494,7 +622,9 @@ Examples:
         print("BNN Serengeti2 — Training")
         print("=" * 60)
         train(num_epochs=args.epochs, data_root=args.data_root,
-              resume=args.resume, args_best_acc=args.best_acc)
+              resume=args.resume, args_best_acc=args.best_acc,
+              rrr_lambda=args.rrr_lambda, warm_start=args.warm_start,
+              patience=args.patience)
 
     elif args.command == "check":
         if not args.images:
