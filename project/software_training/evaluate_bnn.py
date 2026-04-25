@@ -16,6 +16,7 @@ import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import argparse
+import csv
 import json
 import random
 import zipfile
@@ -25,6 +26,7 @@ from pathlib import Path
 import torch
 from torchvision import datasets
 from torch.utils.data import DataLoader
+from PIL import Image
 
 # Import model definition from the training script
 import sys
@@ -109,6 +111,22 @@ def _build_date_map(metadata_path: str) -> dict[str, str]:
     return date_map
 
 
+# ── Greyscale IR label map ────────────────────────────────────────────────────
+def _build_ir_map(csv_path: str) -> dict[str, str]:
+    """Load {stem: 'day'|'night'} from label_ir_images.py output CSV."""
+    ir_map = {}
+    path = Path(csv_path)
+    if not path.exists():
+        print(f"  WARNING: IR label CSV not found at {csv_path} — falling back to timestamps.")
+        return ir_map
+    with open(path, newline="") as f:
+        for row in csv.DictReader(f):
+            tod = row["ir_tod"]                        # 'day' or 'night_ir'
+            ir_map[row["stem"]] = "night" if tod == "night_ir" else "day"
+    print(f"  Loaded greyscale IR labels for {len(ir_map):,} images from {path.name}")
+    return ir_map
+
+
 # ── Day / Night helper ────────────────────────────────────────────────────────
 def _time_of_day(date_str: str) -> str:
     """'day', 'night', or 'unknown' from a 'YYYY-MM-DD HH:MM:SS' string."""
@@ -121,25 +139,93 @@ def _time_of_day(date_str: str) -> str:
         return "unknown"
 
 
-# ── Inference ─────────────────────────────────────────────────────────────────
-def run_evaluation(data_root: str, metadata_path: str, checkpoint: str, threshold: float = 0.5, use_tta: bool = False):
-    test_dir = Path(data_root) / "test"
-    if not test_dir.exists():
-        raise FileNotFoundError(f"Test directory not found: {test_dir}")
+# ── Hard-blank sequence evaluation ───────────────────────────────────────────
+def eval_hard_blanks(seq_dir: Path, models: list, threshold: float, filter_n: int = 3):
+    """
+    Evaluate on PIR-triggered blank sequences from data_sequences/blank/.
+    These are selection-biased hard negatives (not in the training set) and the
+    main benchmark for measuring whether retraining reduced persistent false alarms.
+    """
+    index_path = seq_dir / "seq_index.json"
+    if not index_path.exists():
+        print(f"  Skipping hard-blank eval — no seq_index.json at {seq_dir}")
+        return
+    index = json.loads(index_path.read_text())
+    blank_entries = [e for e in index if e["label"] == "blank"]
+    if not blank_entries:
+        return
 
-    # Load model
+    frame_fp = frame_tn = seq_fp = seq_tn = 0
+
+    for entry in blank_entries:
+        seq_path = seq_dir / "blank" / f"seq_{entry['seq_idx']:05d}"
+        frames   = sorted(seq_path.glob("frame_*.jpg"))
+        if not frames:
+            continue
+
+        detections = []
+        for f in frames:
+            img = _transform(Image.open(f).convert("RGB")).unsqueeze(0).to(DEVICE)
+            with torch.no_grad():
+                probs = sum(torch.softmax(m(img), dim=1) for m in models) / len(models)
+            det = probs[0, _NONBLANK_IDX].item() >= threshold
+            detections.append(det)
+            if det: frame_fp += 1
+            else:   frame_tn += 1
+
+        triggered = []
+        for i in range(len(detections)):
+            window = detections[max(0, i - filter_n + 1): i + 1]
+            triggered.append(len(window) == filter_n and all(window))
+        if any(triggered): seq_fp += 1
+        else:              seq_tn += 1
+
+    total_frames = frame_fp + frame_tn
+    total_seqs   = seq_fp + seq_tn
+    frame_far    = 100 * frame_fp / total_frames if total_frames else 0
+    seq_far      = 100 * seq_fp   / total_seqs   if total_seqs   else 0
+
+    W = 52
+    print("\n" + "═" * W)
+    print("  HARD BLANK SEQUENCES  (PIR-triggered, not in training set)")
+    print("═" * W)
+    print(f"  {total_seqs} sequences  ×  {total_frames // total_seqs if total_seqs else 0} frames")
+    print(f"  Per-frame FAR    : {frame_far:.1f}%   (FP={frame_fp}  TN={frame_tn})")
+    print(f"  Per-seq FAR      : {seq_far:.1f}%   ({filter_n}-frame filter)  (FP={seq_fp}  TN={seq_tn})")
+    print("═" * W + "\n")
+
+
+# ── Inference ─────────────────────────────────────────────────────────────────
+def _load_model(checkpoint: str) -> torch.nn.Module:
     model = BNNClassifier()
     ckpt = torch.load(checkpoint, map_location=DEVICE, weights_only=True)
     model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
     model.to(DEVICE)
     model.eval()
+    return model
+
+
+def run_evaluation(data_root: str, metadata_path: str, checkpoint: str,
+                   threshold: float = 0.5, use_tta: bool = False,
+                   ensemble_checkpoint: str = None, ir_labels_csv: str = None,
+                   seq_dir: str = None, filter_n: int = 3):
+    test_dir = Path(data_root) / "test"
+    if not test_dir.exists():
+        raise FileNotFoundError(f"Test directory not found: {test_dir}")
+
+    # Load model(s)
+    model = _load_model(checkpoint)
+    model2 = _load_model(ensemble_checkpoint) if ensemble_checkpoint else None
+    if model2:
+        print(f"  Ensemble: averaging {Path(checkpoint).name} + {Path(ensemble_checkpoint).name}\n")
 
     # Dataset — use inference transform (no augmentation)
     dataset = datasets.ImageFolder(str(test_dir), transform=_transform)
     loader  = DataLoader(dataset, batch_size=64, num_workers=2,
                          persistent_workers=True, shuffle=False)
 
-    # Date map for day/night (may be empty if metadata unavailable)
+    # Greyscale IR labels take priority; timestamps used as fallback
+    ir_map   = _build_ir_map(ir_labels_csv) if ir_labels_csv else {}
     date_map = _build_date_map(metadata_path)
 
     # Accumulators — overall and per time-of-day
@@ -161,6 +247,9 @@ def run_evaluation(data_root: str, metadata_path: str, checkpoint: str, threshol
                 probs = _tta_probs(model, imgs).cpu()
             else:
                 probs = torch.softmax(model(imgs), dim=1).cpu()
+            if model2 is not None:
+                probs2 = torch.softmax(model2(imgs), dim=1).cpu()
+                probs = (probs + probs2) / 2.0
             # Apply threshold: predict ANIMAL only if p(animal) >= threshold
             preds = (probs[:, _NONBLANK_IDX] >= threshold).long()
 
@@ -179,7 +268,7 @@ def run_evaluation(data_root: str, metadata_path: str, checkpoint: str, threshol
 
                 img_path = dataset.imgs[img_index][0]
                 stem     = Path(img_path).stem
-                tod      = _time_of_day(date_map.get(stem, ""))
+                tod      = ir_map.get(stem) or _time_of_day(date_map.get(stem, ""))
                 tod_counts[tod][cell] += 1
 
                 img_index += 1
@@ -238,12 +327,17 @@ def run_evaluation(data_root: str, metadata_path: str, checkpoint: str, threshol
     print("\n" + "═" * W)
     print("  DAY vs. NIGHT  —  FULL BREAKDOWN")
     print("═" * W + "\n")
-    _print_tod_block("DAY   (07:00–18:00)", tod_counts["day"])
-    _print_tod_block("NIGHT (19:00–06:00)", tod_counts["night"])
+    method = "greyscale IR classifier" if ir_map else "timestamp"
+    _print_tod_block(f"DAY   ({method})", tod_counts["day"])
+    _print_tod_block(f"NIGHT ({method})", tod_counts["night"])
     if tod_counts["unknown"]["tp"] + tod_counts["unknown"]["tn"] + \
        tod_counts["unknown"]["fp"] + tod_counts["unknown"]["fn"] > 0:
-        _print_tod_block("UNKNOWN (no timestamp)", tod_counts["unknown"])
+        _print_tod_block("UNKNOWN (no label)", tod_counts["unknown"])
     print("═" * W + "\n")
+
+    if seq_dir and Path(seq_dir).exists():
+        models = [model] + ([model2] if model2 else [])
+        eval_hard_blanks(Path(seq_dir), models, threshold, filter_n)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -261,12 +355,25 @@ if __name__ == "__main__":
                         help="p(animal) threshold (default: sweep 0.5, 0.6, 0.7)")
     parser.add_argument("--tta", action="store_true",
                         help="Enable test-time augmentation (4 views averaged)")
+    parser.add_argument("--ensemble", default=None, metavar="CKPT",
+                        help="Second checkpoint to ensemble-average with the primary checkpoint")
+    parser.add_argument("--ir-labels", default=None, metavar="CSV",
+                        help="CSV from label_ir_images.py — greyscale day/night labels "
+                             "(overrides timestamp-based classification)")
+    parser.add_argument("--seq-dir", default="project/data_sequences", metavar="DIR",
+                        help="Directory of downloaded sequences for hard-blank evaluation "
+                             "(default: project/data_sequences)")
+    parser.add_argument("--filter-n", type=int, default=3, metavar="N",
+                        help="Consecutive frames required for temporal filter (default: 3)")
     args = parser.parse_args()
 
     if args.threshold is not None:
-        run_evaluation(args.data_root, args.metadata, args.checkpoint, args.threshold, args.tta)
+        run_evaluation(args.data_root, args.metadata, args.checkpoint,
+                       args.threshold, args.tta, args.ensemble, args.ir_labels,
+                       args.seq_dir, args.filter_n)
     else:
-        # Sweep common thresholds so the tradeoff is visible at a glance
         for t in [0.5, 0.6, 0.7]:
             print(f"\n{'▶'*3}  THRESHOLD = {t}  {'◀'*3}")
-            run_evaluation(args.data_root, args.metadata, args.checkpoint, t, args.tta)
+            run_evaluation(args.data_root, args.metadata, args.checkpoint,
+                           t, args.tta, args.ensemble, args.ir_labels,
+                           args.seq_dir, args.filter_n)

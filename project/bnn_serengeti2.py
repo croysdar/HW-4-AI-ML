@@ -25,6 +25,7 @@ Usage:
   confidence_check("path/to/image.jpg", model)     # from Jupyter
 """
 
+import json
 import os
 import sys
 import time
@@ -33,6 +34,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"  # macOS OpenMP conflict workaround
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from pathlib import Path
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from PIL import Image
@@ -51,15 +53,16 @@ else:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_ROOT   = os.path.join(_SCRIPT_DIR, "images", "archive")
+DATA_ROOT   = os.path.join(_SCRIPT_DIR, "data_20k")
 CHECKPOINT  = os.path.join(_SCRIPT_DIR, "bnn_serengeti2.pth")
+_SEQ_DIR    = os.path.join(_SCRIPT_DIR, "data_sequences")
 
 BATCH_SIZE      = 32    # physical batch size (GPU memory)
 ACCUM_STEPS     = 4     # gradient accumulation → effective batch = 32 × 4 = 128
 EPOCHS          = 25
 LR              = 7.64e-4  # Optuna best (trial 3, 85.6% in 10 epochs)
 IMG_SIZE        = 224
-EARLY_STOP_PAT  = 7    # stop if val acc doesn't improve for this many epochs
+EARLY_STOP_PAT  = 15   # stop if val acc doesn't improve for this many epochs
 GRAD_CLIP       = 0.775  # Optuna best (trial 3)
 
 # ImageFolder sorts classes alphabetically: blank=0, non_blank=1
@@ -155,7 +158,42 @@ _train_transform = transforms.Compose([
     transforms.RandomGrayscale(p=0.2),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+    # Randomly erase small patches (2–15% of image area) to prevent the model
+    # from relying on any single texture region — directly targets the scattered
+    # rock/shadow activations seen in hard-blank Grad-CAM heatmaps.
+    transforms.RandomErasing(p=0.3, scale=(0.02, 0.15), ratio=(0.3, 3.3), value=0),
 ])
+
+
+# ── Hard-blank sequence helpers ───────────────────────────────────────────────
+def _load_hard_blank_frames(seq_dir: str = _SEQ_DIR) -> torch.Tensor | None:
+    """Pre-load all blank sequence frames into a single tensor for fast per-epoch eval."""
+    index_path = Path(seq_dir) / "seq_index.json"
+    if not index_path.exists():
+        return None
+    index = json.loads(index_path.read_text())
+    frames = []
+    for entry in index:
+        if entry["label"] != "blank":
+            continue
+        seq_path = Path(seq_dir) / "blank" / f"seq_{entry['seq_idx']:05d}"
+        for f in sorted(seq_path.glob("frame_*.jpg")):
+            frames.append(_transform(Image.open(f).convert("RGB")))
+    return torch.stack(frames) if frames else None  # [N, 3, 224, 224]
+
+
+def _hard_blank_far(model: nn.Module, frames: torch.Tensor,
+                    threshold: float = 0.5) -> float:
+    """Per-frame FAR on the pre-loaded hard-blank tensor."""
+    model.eval()
+    fp = tn = 0
+    with torch.no_grad():
+        for i in range(0, len(frames), 64):
+            probs = torch.softmax(model(frames[i:i+64].to(DEVICE)), dim=1)
+            dets  = probs[:, _NONBLANK_IDX] >= threshold
+            fp   += int(dets.sum())
+            tn   += int((~dets).sum())
+    return 100.0 * fp / (fp + tn) if (fp + tn) else 0.0
 
 
 # ── Dataset helpers ───────────────────────────────────────────────────────────
@@ -235,10 +273,15 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
     elif resume:
         print("No checkpoint found — starting from scratch.")
 
+    hb_frames = _load_hard_blank_frames()
+    if hb_frames is not None:
+        print(f"  Hard-blank frames loaded: {len(hb_frames)} (from {_SEQ_DIR})")
+
+    hb_col = "  HB-FAR" if hb_frames is not None else ""
     print(f"\n{'Epoch':>6}  {'Train Loss':>10}  {'Train Acc':>9}  "
-          f"{'Val Loss':>9}  {'Val Acc':>8}  {'Recall':>7}  {'FAR':>6}  {'Time':>6}  {'LR':>8}")
+          f"{'Val Loss':>9}  {'Val Acc':>8}  {'Recall':>7}  {'FAR':>6}{hb_col}  {'Time':>6}  {'LR':>8}")
     print(f"  (effective batch size = {BATCH_SIZE} × {ACCUM_STEPS} = {BATCH_SIZE * ACCUM_STEPS})")
-    print("-" * 93)
+    print("-" * (93 + (9 if hb_frames is not None else 0)))
 
     for epoch in range(start_epoch, num_epochs + 1):
         model.train()
@@ -275,6 +318,7 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
         v_loss, v_acc, vtp, vtn, vfp, vfn = evaluate(model, test_loader, criterion)
         recall     = 100.0 * vtp / (vtp + vfn) if (vtp + vfn) else 0.0
         far        = 100.0 * vfp / (vfp + vtn) if (vfp + vtn) else 0.0
+        hb_far     = _hard_blank_far(model, hb_frames) if hb_frames is not None else None
         elapsed    = time.time() - t0
         epoch_time = f"{int(elapsed//60)}m{int(elapsed%60):02d}s"
         current_lr = optimizer.param_groups[0]["lr"]
@@ -296,8 +340,9 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
             no_improve += 1
             marker = ""
 
+        hb_str = f"  {hb_far:>5.1f}%" if hb_far is not None else ""
         print(f"{epoch:>6}  {t_loss:>10.4f}  {t_acc:>8.1f}%  "
-              f"{v_loss:>9.4f}  {v_acc:>7.1f}%  {recall:>6.1f}%  {far:>5.1f}%  {epoch_time:>6}  {current_lr:>8.2e}{marker}")
+              f"{v_loss:>9.4f}  {v_acc:>7.1f}%  {recall:>6.1f}%  {far:>5.1f}%{hb_str}  {epoch_time:>6}  {current_lr:>8.2e}{marker}")
 
         if no_improve >= EARLY_STOP_PAT:
             print(f"\nEarly stopping — val acc hasn't improved for {EARLY_STOP_PAT} epochs.")
