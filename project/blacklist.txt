@@ -1,0 +1,5 @@
+# Images to exclude from training and evaluation.
+# One filename stem per line. Lines starting with # are comments.
+# Reason: contains vehicles, not wildlife — corrupts animal class.
+non_blank_00981
+non_blank_04566

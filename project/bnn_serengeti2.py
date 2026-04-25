@@ -197,13 +197,41 @@ def _hard_blank_far(model: nn.Module, frames: torch.Tensor,
 
 
 # ── Dataset helpers ───────────────────────────────────────────────────────────
+_BLACKLIST_PATH = os.path.join(_SCRIPT_DIR, "blacklist.txt")
+
+def _load_blacklist() -> set:
+    if not os.path.exists(_BLACKLIST_PATH):
+        return set()
+    stems = set()
+    with open(_BLACKLIST_PATH) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                stems.add(line)
+    return stems
+
+
+def _filter_dataset(ds: datasets.ImageFolder, blacklist: set) -> torch.utils.data.Subset:
+    if not blacklist:
+        return ds
+    keep = [i for i, (path, _) in enumerate(ds.imgs)
+            if Path(path).stem not in blacklist]
+    return torch.utils.data.Subset(ds, keep)
+
+
 def make_loaders(data_root: str = DATA_ROOT):
+    blacklist = _load_blacklist()
+    if blacklist:
+        print(f"Blacklist: {len(blacklist)} images excluded ({', '.join(sorted(blacklist))})")
+
     train_ds = datasets.ImageFolder(os.path.join(data_root, "train"), transform=_train_transform)
     test_ds  = datasets.ImageFolder(os.path.join(data_root, "test"),  transform=_transform)
-    print(f"Classes : {train_ds.classes}  (blank=0, non_blank=1)")
+    train_ds = _filter_dataset(train_ds, blacklist)
+    test_ds  = _filter_dataset(test_ds,  blacklist)
+
+    print(f"Classes : {train_ds.dataset.classes if hasattr(train_ds, 'dataset') else train_ds.classes}  (blank=0, non_blank=1)")
     print(f"Train   : {len(train_ds):,} images")
     print(f"Test    : {len(test_ds):,}  images")
-    # num_workers=2: workers only do CPU image loading/transforms, never touch MPS
     kw = dict(batch_size=BATCH_SIZE, num_workers=2, persistent_workers=True, pin_memory=False)
     return (
         DataLoader(train_ds, shuffle=True,  **kw),

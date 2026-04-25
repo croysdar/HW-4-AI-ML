@@ -1,6 +1,27 @@
+# Datasets and large binary outputs
 /project/images/*
 /project/data_20k/*
 /project/data_combined/*
 /project/data_sequences/*
 *.pth
 *.zip
+
+# Grad-CAM output directories
+/project/gradcam_outputs/
+/project/gradcam_worst_fps/
+/project/gradcam_worst_fps_new/
+/project/gradcam_best_tps/
+/project/gradcam_framediff/
+
+# Generated annotation/label files
+/project/bbox_annotations.json
+/project/ser_tod_labels.csv
+baseline_profile_output.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
