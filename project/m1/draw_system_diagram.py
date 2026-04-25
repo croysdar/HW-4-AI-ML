@@ -128,7 +128,7 @@ ax.plot([7.15, 7.15], [0.45, 11.6], color='#808B96', lw=2.5, linestyle=':', zord
 # ══════════════════════════════════════════════════════════════════════════════
 # ARM CPU  (y: 8.8 → 10.8, center y=9.8)
 rbox(ax, 0.5, 8.8, 5.9, 2.0,
-     'ARM CPU Core(s)\n(Runs application SW, camera driver)',
+     'ARM CPU Core(s)\n(Data Load, Conv1 8-bit,\nBatchNorm, Pool, Linear)',
      fc=C_PS_FILL, ec=C_PS_EC, lw=2, fontsize=10.5, bold=True, labelcolor='white')
 
 # DDR Memory Controller  (y: 5.8 → 7.6, center y=6.7)
@@ -202,12 +202,12 @@ rbox(ax, 16.1, 5.1, 3.1, 0.9,
 
 # On-Chip SRAM — left side  (y: 3.1 → 5.0)
 rbox(ax, 13.0, 3.1, 2.8, 1.9,
-     'On-Chip SRAM\nBuffers\n(Local Weight &\nActivation Storage)',
+     'On-Chip SRAM\nBuffers\n(Conv2-4 Weights &\nActivations, 1-bit)',
      fc=C_SRAM_BG, ec=C_SRAM_EC, lw=1.5, fontsize=9)
 
 # XNOR/Popcount — right side  (y: 3.1 → 5.0)
 rbox(ax, 16.1, 3.1, 3.1, 1.9,
-     'XNOR / Popcount\nSpatial Compute\nArray',
+     'XNOR / Popcount\n(Conv2, Conv3, Conv4)\nSpatial Compute',
      fc=C_XNOR_BG, ec=C_XNOR_EC, lw=1.5, fontsize=9, bold=True)
 
 # M_AXIS — full-width output stream port  (y: 1.3 → 2.2)
