@@ -50,8 +50,10 @@ def load_meta(path: str) -> dict:
 def main():
     parser = argparse.ArgumentParser(
         description="Extract Caltech bounding box annotations for downloaded images")
-    parser.add_argument("--metadata", default="lila_metadata_cache.json.zip", metavar="PATH")
-    parser.add_argument("--out",      default="project/bbox_annotations.json", metavar="PATH")
+    parser.add_argument("--metadata",  default="lila_metadata_cache.json.zip", metavar="PATH")
+    parser.add_argument("--bbox-file", default="caltech_bboxes_20200316.json",  metavar="PATH",
+                        help="Separate LILA bbox JSON (caltech_bboxes_20200316.json)")
+    parser.add_argument("--out",       default="project/bbox_annotations.json", metavar="PATH")
     args = parser.parse_args()
 
     print("Loading metadata …")
@@ -62,7 +64,27 @@ def main():
     empty_ids = {cid for cid, name in cat_name.items() if "empty" in name.lower()}
     id_to_img = {img["id"]: img for img in meta["images"]}
 
-    # Group annotations by image_id; keep bbox if present
+    # Load separate bbox file if provided — overrides base metadata annotations
+    bbox_by_img: dict = defaultdict(list)
+    bbox_cat_name: dict = {}
+    bbox_img_dims: dict = {}   # image_id → (orig_width, orig_height)
+    if args.bbox_file and Path(args.bbox_file).exists():
+        print(f"Loading bbox file: {args.bbox_file} …")
+        with open(args.bbox_file) as f:
+            bbox_data = json.load(f)
+        bbox_cat_name = {c["id"]: c["name"] for c in bbox_data.get("categories", [])}
+        for img in bbox_data.get("images", []):
+            if "width" in img and "height" in img:
+                bbox_img_dims[img["id"]] = (img["width"], img["height"])
+        for ann in bbox_data.get("annotations", []):
+            if ann.get("bbox"):
+                bbox_by_img[ann["image_id"]].append(ann)
+        print(f"  {sum(len(v) for v in bbox_by_img.values()):,} bbox annotations "
+              f"across {len(bbox_by_img):,} images")
+    else:
+        print("  No bbox file found — falling back to base metadata annotations (likely empty)")
+
+    # Group base annotations by image_id for category lookup
     img_anns: dict = defaultdict(list)
     for ann in meta["annotations"]:
         img_anns[ann["image_id"]].append(ann)
@@ -90,17 +112,28 @@ def main():
     def _process(sample, prefix):
         nonlocal n_with_bbox
         for i, img in enumerate(sample):
-            stem = f"{prefix}_{i:05d}"
-            anns = img_anns.get(img["id"], [])
+            stem  = f"{prefix}_{i:05d}"
             boxes = []
-            for ann in anns:
-                entry = {"category": cat_name.get(ann["category_id"], "unknown")}
-                if "bbox" in ann and ann["bbox"]:
-                    entry["bbox"] = ann["bbox"]   # [x, y, w, h] pixels
+            # Prefer separate bbox file; fall back to base metadata
+            bbox_anns = bbox_by_img.get(img["id"]) or []
+            orig_w, orig_h = bbox_img_dims.get(img["id"], (None, None))
+            if bbox_anns:
+                for ann in bbox_anns:
+                    cat = bbox_cat_name.get(ann["category_id"], "unknown")
+                    boxes.append({
+                        "category": cat,
+                        "bbox": ann["bbox"],
+                        "orig_width": orig_w,
+                        "orig_height": orig_h,
+                    })
                     n_with_bbox += 1
-                else:
-                    entry["bbox"] = None
-                boxes.append(entry)
+            else:
+                for ann in img_anns.get(img["id"], []):
+                    entry = {"category": cat_name.get(ann["category_id"], "unknown")}
+                    entry["bbox"] = ann["bbox"] if ("bbox" in ann and ann["bbox"]) else None
+                    if entry["bbox"]:
+                        n_with_bbox += 1
+                    boxes.append(entry)
             output[stem] = {
                 "image_id":  img["id"],
                 "file_name": img.get("file_name", ""),
