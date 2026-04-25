@@ -6,12 +6,26 @@
 *.pth
 *.zip
 
+# Occlusion sensitivity outputs
+/project/occlusion_outputs/
+
 # Grad-CAM output directories
 /project/gradcam_outputs/
 /project/gradcam_worst_fps/
 /project/gradcam_worst_fps_new/
 /project/gradcam_best_tps/
 /project/gradcam_framediff/
+
+# Generated HTML reports
+/project/bbox_check.html
+/project/gradcam_bbox_check.html
+
+# Frame-diff training data and model
+/project/data_3frame_seqs/
+bnn_framediff.pth
+
+# External LILA annotation files
+caltech_bboxes_20200316.json
 
 # Generated annotation/label files
 /project/bbox_annotations.json
