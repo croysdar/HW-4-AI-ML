@@ -45,3 +45,11 @@ codefest/cf04/hdl/mac_a_sim
 codefest/cf04/hdl/mac_b_sim
 codefest/cf04/hdl/mac_sim
 codefest/cf04/hdl/a.out
+
+# cocotb build artifacts
+codefest/cf04/cocotb_mac/sim_build/cmds.f
+codefest/cf04/cocotb_mac/sim_build/sim.vvp
+codefest/cf04/cocotb_mac/results.xml
+codefest/cf04/cocotb_mac/sim_build/cocotb_iverilog_dump.v
+codefest/cf04/cocotb_mac/__pycache__/
+codefest/cf04/cocotb_mac/.venv/

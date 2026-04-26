@@ -1,0 +1,29 @@
+rm -f results.xml
+"/Applications/Xcode.app/Contents/Developer/usr/bin/make" -f Makefile results.xml
+/Users/rebeccagilbert-croysdale/HW-4-AI-ML/codefest/cf04/cocotb_mac/.venv/lib/python3.13/site-packages/cocotb_tools/makefiles/simulators/Makefile.icarus:65: Using MODULE is deprecated, please use COCOTB_TEST_MODULES instead.
+rm -f results.xml
+COCOTB_TEST_MODULES=test_mac COCOTB_TESTCASE= COCOTB_TEST_FILTER= COCOTB_TOPLEVEL=mac TOPLEVEL_LANG=verilog \
+         /opt/homebrew/bin/vvp -M /Users/rebeccagilbert-croysdale/HW-4-AI-ML/codefest/cf04/cocotb_mac/.venv/lib/python3.13/site-packages/cocotb/libs -m libcocotbvpi_icarus   sim_build/sim.vvp -fst  
+     -.--ns INFO     gpi                                ..mbed/gpi_embed.cpp:94   in _embed_init_python              Using Python 3.13.9 interpreter at /Users/rebeccagilbert-croysdale/HW-4-AI-ML/codefest/cf04/cocotb_mac/.venv/bin/python3.13
+     -.--ns INFO     gpi                                ../gpi/GpiCommon.cpp:79   in gpi_print_registered_impl       VPI registered
+     0.00ns INFO     cocotb                             Running on Icarus Verilog version 13.0 (stable)
+     0.00ns INFO     cocotb                             Seeding Python random module with 1777238789
+     0.00ns INFO     cocotb                             Initialized cocotb v2.0.1 from /Users/rebeccagilbert-croysdale/HW-4-AI-ML/codefest/cf04/cocotb_mac/.venv/lib/python3.13/site-packages/cocotb
+     0.00ns INFO     cocotb.regression                  pytest not found, install it to enable better AssertionError messages
+     0.00ns INFO     cocotb                             Running tests
+     0.00ns INFO     cocotb.regression                  running test_mac.test_mac_basic (1/2)
+    60.00ns INFO     cocotb.regression                  test_mac.test_mac_basic passed
+    60.00ns INFO     cocotb.regression                  running test_mac.test_mac_overflow (2/2)
+                                                            Verifies accumulator wraps (2's complement) — no saturation logic present.
+1331530.00ns INFO     cocotb.mac                         After 133146 cycles of a=127*b=127: out = -2147455462
+1331530.00ns INFO     cocotb.mac                         Design WRAPS (2's complement) — no saturation logic present
+1331530.00ns INFO     cocotb.regression                  test_mac.test_mac_overflow passed
+1331530.00ns INFO     cocotb.regression                  **************************************************************************************
+                                                         ** TEST                          STATUS  SIM TIME (ns)  REAL TIME (s)  RATIO (ns/s) **
+                                                         **************************************************************************************
+                                                         ** test_mac.test_mac_basic        PASS          60.00           0.00      49373.80  **
+                                                         ** test_mac.test_mac_overflow     PASS     1331470.00           1.94     685067.65  **
+                                                         **************************************************************************************
+                                                         ** TESTS=2 PASS=2 FAIL=0 SKIP=0            1331530.00           1.95     684284.87  **
+                                                         **************************************************************************************
+FST info: dumpfile sim_build/mac.fst opened for output.
