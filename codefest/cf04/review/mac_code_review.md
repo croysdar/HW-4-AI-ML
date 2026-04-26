@@ -123,9 +123,27 @@ out <= '0;
 
 ---
 
+## mac_correct.v — Simulation Log
+
+`iverilog -g2012 -o mac_sim mac_correct.v mac_tb.v && vvp mac_sim`
+
+```
+Cycle 1: out=12 (expect 12)
+Cycle 2: out=24 (expect 24)
+Cycle 3: out=36 (expect 36)
+After rst: out=0 (expect 0)
+Cycle 5: out=-10 (expect -10)
+Cycle 6: out=-20 (expect -20)
+mac_tb.v:32: $finish called at 66000 (1ps)
+```
+
+All outputs match. ✓
+
+---
+
 ## mac_correct.v — Yosys Synthesis
 
-osys -p 'read_verilog -sv mac_correct.v; synth; stat'
+`yosys -p 'read_verilog -sv mac_correct.v; synth; stat'`
 
 /----------------------------------------------------------------------------\
  | yosys -- Yosys Open SYnthesis Suite |
