@@ -124,6 +124,32 @@ def _apply_mask_overlay(pil: Image.Image) -> Image.Image:
     return img
 
 
+def bbox_alignment(heatmap: np.ndarray, boxes: list, size: int = 224) -> float | None:
+    """Fraction of positive heatmap energy that falls inside the ground-truth bbox union.
+    Returns None if no valid bboxes are present."""
+    mask = np.zeros((size, size), dtype=np.float32)
+    for b in boxes:
+        if not b.get("bbox"):
+            continue
+        x, y, w, h = b["bbox"]
+        ow = b.get("orig_width")  or size
+        oh = b.get("orig_height") or size
+        sx, sy = size / ow, size / oh
+        x1 = max(0, int(x * sx))
+        y1 = max(0, int(y * sy))
+        x2 = min(size, int((x + w) * sx) + 1)
+        y2 = min(size, int((y + h) * sy) + 1)
+        if x2 > x1 and y2 > y1:
+            mask[y1:y2, x1:x2] = 1.0
+    if mask.sum() == 0:
+        return None
+    positive = np.clip(heatmap, 0, None)
+    total = positive.sum()
+    if total == 0:
+        return None
+    return float((positive * mask).sum() / total)
+
+
 def _draw_boxes(pil: Image.Image, boxes: list) -> Image.Image:
     img  = pil.copy()
     draw = ImageDraw.Draw(img)
@@ -141,15 +167,24 @@ def _draw_boxes(pil: Image.Image, boxes: list) -> Image.Image:
 
 # ── HTML output ───────────────────────────────────────────────────────────────
 def _card(stem: str, orig: Image.Image, occ_pil: Image.Image,
-          boxes: list, p_animal: float) -> str:
+          boxes: list, p_animal: float, alignment: float | None,
+          max_drop: float = 0.0) -> str:
     orig_box = _draw_boxes(orig, boxes)
     occ_box  = _draw_boxes(occ_pil, boxes)
-    colour   = "#e03c3c" if p_animal >= 0.5 else "#3cb87a"
+    p_colour = "#e03c3c" if p_animal >= 0.5 else "#888"
     cats     = ", ".join(set(b.get("category", "?") for b in boxes if b.get("bbox")))
+    if alignment is not None:
+        a_colour = "#3cb87a" if alignment >= 0.5 else ("#f0a500" if alignment >= 0.25 else "#e03c3c")
+        align_str = f'<span style="color:{a_colour}"> align={alignment:.1%}</span>'
+    else:
+        align_str = '<span style="color:#888"> align=n/a</span>'
+    drop_colour = "#3cb87a" if max_drop >= 0.05 else ("#f0a500" if max_drop >= 0.01 else "#888")
     return f"""
 <div class="card">
   <div class="label">{stem}
-    <span style="color:{colour}"> p(animal)={p_animal:.3f}</span>
+    <span style="color:{p_colour}"> p(animal)={p_animal:.3f}</span>
+    {align_str}
+    <span style="color:{drop_colour}"> max_drop={max_drop:.4f}</span>
     <small> {cats}</small>
   </div>
   <div class="row">
@@ -161,7 +196,9 @@ def _card(stem: str, orig: Image.Image, occ_pil: Image.Image,
 </div>"""
 
 
-def _build_html(cards: list[str], checkpoint: str, patch: int, stride: int) -> str:
+def _build_html(cards: list[str], checkpoint: str, patch: int, stride: int,
+                mean_alignment: float | None = None) -> str:
+    align_str = f"mean align={mean_alignment:.1%}" if mean_alignment is not None else ""
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
@@ -180,7 +217,8 @@ h2{{font-size:15px;margin-bottom:4px}}
 <p class="meta">checkpoint: {checkpoint} &nbsp;|&nbsp;
   patch={patch}px  stride={stride}px &nbsp;|&nbsp;
   bright = important  dark = ignored &nbsp;|&nbsp;
-  green box = ground-truth annotation</p>
+  green box = ground-truth annotation &nbsp;|&nbsp;
+  align = heatmap energy inside bbox &nbsp;|&nbsp; {align_str}</p>
 {''.join(cards)}
 </body></html>"""
 
@@ -214,7 +252,8 @@ def run(image_paths: list[Path], checkpoint: str, out_path: Path,
                     image_paths.append(p)
                     break
 
-    cards = []
+    cards      = []
+    alignments = []
     for img_path in image_paths:
         stem  = img_path.stem
         orig  = Image.open(img_path).convert("RGB").resize((224, 224))
@@ -222,17 +261,28 @@ def run(image_paths: list[Path], checkpoint: str, out_path: Path,
 
         print(f"  {stem} …", end=" ", flush=True)
         heatmap, p_animal = occlusion_map(model, tensor, patch=patch, stride=stride)
-        print(f"p={p_animal:.3f}")
+
+        boxes     = bboxes.get(stem, {}).get("boxes", [])
+        alignment = bbox_alignment(heatmap, boxes)
+        max_drop  = float(np.clip(heatmap, 0, None).max())
+        if alignment is not None:
+            alignments.append(alignment)
+        align_out = f"{alignment:.1%}" if alignment is not None else "n/a"
+        print(f"p={p_animal:.3f}  align={align_out}  max_drop={max_drop:.4f}")
 
         masked_orig = _apply_mask_overlay(orig)
         occ_pil = _heatmap_to_pil(heatmap, masked_orig)
-        boxes   = bboxes.get(stem, {}).get("boxes", [])
-        cards.append(_card(stem, masked_orig, occ_pil, boxes, p_animal))
+        cards.append(_card(stem, masked_orig, occ_pil, boxes, p_animal, alignment, max_drop))
 
-    html = _build_html(cards, checkpoint, patch, stride)
+    if alignments:
+        print(f"\nMean bbox alignment : {sum(alignments)/len(alignments):.1%}  "
+              f"(n={len(alignments)}, ≥50%: {sum(a>=0.5 for a in alignments)}/{len(alignments)})")
+
+    mean_align = sum(alignments) / len(alignments) if alignments else None
+    html = _build_html(cards, checkpoint, patch, stride, mean_align)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html, encoding="utf-8")
-    print(f"\nSaved → {out_path}")
+    print(f"Saved → {out_path}")
 
 
 if __name__ == "__main__":
