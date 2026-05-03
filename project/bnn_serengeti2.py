@@ -361,7 +361,8 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
           resume: bool = False, args_best_acc: float = 0.0,
           rrr_lambda: float = RRR_LAMBDA,
           warm_start: str | None = None,
-          patience: int = EARLY_STOP_PAT) -> nn.Module:
+          patience: int = EARLY_STOP_PAT,
+          checkpoint: str = CHECKPOINT) -> nn.Module:
     train_loader, test_loader = make_loaders(data_root)
     model     = BNNClassifier().to(DEVICE)
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=0.00815)  # Optuna best
@@ -377,8 +378,8 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
     no_improve   = 0
     start_epoch  = 1
 
-    if resume and os.path.exists(CHECKPOINT):
-        ckpt = torch.load(CHECKPOINT, map_location=DEVICE, weights_only=False)
+    if resume and os.path.exists(checkpoint):
+        ckpt = torch.load(checkpoint, map_location=DEVICE, weights_only=False)
         if "model" in ckpt:
             # New format — full restore
             model.load_state_dict(ckpt["model"])
@@ -486,7 +487,7 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
                 "optimizer":    optimizer.state_dict(),
                 "scheduler":    scheduler.state_dict(),
                 "best_val_acc": best_val_acc,
-            }, CHECKPOINT)
+            }, checkpoint)
             marker = " ✓"
         else:
             no_improve += 1
@@ -502,7 +503,7 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
             break
 
     print(f"\nBest val accuracy : {best_val_acc:.1f}%")
-    print(f"Checkpoint saved  → {CHECKPOINT}")
+    print(f"Checkpoint saved  → {checkpoint}")
     return model
 
 
@@ -618,7 +619,13 @@ Examples:
                         help="Load model weights only from checkpoint (fresh optimizer/scheduler)")
     parser.add_argument("--patience", type=int, default=EARLY_STOP_PAT,
                         help=f"Early stopping patience in epochs (default: {EARLY_STOP_PAT})")
+    parser.add_argument("--checkpoint", default=None, metavar="PATH",
+                        help="Checkpoint file path (default: bnn_serengeti2.pth next to script)")
     args = parser.parse_args()
+
+    ckpt_path = (os.path.join(_SCRIPT_DIR, args.checkpoint)
+                 if args.checkpoint and not os.path.isabs(args.checkpoint)
+                 else args.checkpoint or CHECKPOINT)
 
     if args.command == "train":
         print("\n" + "=" * 60)
@@ -627,7 +634,7 @@ Examples:
         train(num_epochs=args.epochs, data_root=args.data_root,
               resume=args.resume, args_best_acc=args.best_acc,
               rrr_lambda=args.rrr_lambda, warm_start=args.warm_start,
-              patience=args.patience)
+              patience=args.patience, checkpoint=ckpt_path)
 
     elif args.command == "check":
         if not args.images:
