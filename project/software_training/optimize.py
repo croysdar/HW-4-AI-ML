@@ -24,9 +24,10 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import optuna
+from tqdm import tqdm
 optuna.logging.set_verbosity(optuna.logging.WARNING)  # suppress per-step noise
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from bnn_serengeti2 import (
     BNNClassifier, make_loaders, evaluate,
     DEVICE, BATCH_SIZE, ACCUM_STEPS, BinarizeConv2d,
@@ -60,7 +61,10 @@ def objective(trial: optuna.Trial, data_root: str, num_epochs: int,
         model.train()
         optimizer.zero_grad()
 
-        for step, (imgs, labels, _stems) in enumerate(train_loader):
+        pbar = tqdm(train_loader, leave=False,
+                    desc=f"T{trial.number:02d} E{epoch:02d}/{num_epochs}",
+                    unit="batch")
+        for step, (imgs, labels, _stems) in enumerate(pbar):
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
             loss = criterion(model(imgs), labels)
             (loss / ACCUM_STEPS).backward()
