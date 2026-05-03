@@ -183,8 +183,23 @@ _train_transform = transforms.Compose([
 
 
 # ── Hard-blank sequence helpers ───────────────────────────────────────────────
-def _load_hard_blank_frames(seq_dir: str = _SEQ_DIR) -> torch.Tensor | None:
-    """Pre-load all blank sequence frames into a single tensor for fast per-epoch eval."""
+def _colourfulness(img_path: Path) -> float:
+    """Mean max-channel-diff across pixels; near-zero = greyscale/IR (night)."""
+    import numpy as np
+    img = np.array(Image.open(img_path).convert("RGB"), dtype=np.float32)
+    r, g, b = img[:, :, 0], img[:, :, 1], img[:, :, 2]
+    return float(np.mean(np.maximum(np.maximum(np.abs(r - g), np.abs(g - b)), np.abs(r - b))))
+
+_COLOUR_THRESHOLD = 10.0  # matches label_ir_images.py
+
+
+def _load_hard_blank_frames(seq_dir: str = _SEQ_DIR,
+                             tod: str | None = None) -> torch.Tensor | None:
+    """Pre-load blank sequence frames into a single tensor for fast per-epoch eval.
+
+    tod: 'day', 'night', or None (load all). Sequences are classified by the
+    colourfulness score of their first frame (same metric as ser_tod_labels.csv).
+    """
     index_path = Path(seq_dir) / "seq_index.json"
     if not index_path.exists():
         return None
@@ -194,7 +209,15 @@ def _load_hard_blank_frames(seq_dir: str = _SEQ_DIR) -> torch.Tensor | None:
         if entry["label"] != "blank":
             continue
         seq_path = Path(seq_dir) / "blank" / f"seq_{entry['seq_idx']:05d}"
-        for f in sorted(seq_path.glob("frame_*.jpg")):
+        sorted_frames = sorted(seq_path.glob("frame_*.jpg"))
+        if not sorted_frames:
+            continue
+        if tod is not None:
+            score = _colourfulness(sorted_frames[0])
+            seq_tod = "day" if score >= _COLOUR_THRESHOLD else "night"
+            if seq_tod != tod:
+                continue
+        for f in sorted_frames:
             frames.append(_transform(Image.open(f).convert("RGB")))
     return torch.stack(frames) if frames else None  # [N, 3, 224, 224]
 
@@ -362,7 +385,8 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
           rrr_lambda: float = RRR_LAMBDA,
           warm_start: str | None = None,
           patience: int = EARLY_STOP_PAT,
-          checkpoint: str = CHECKPOINT) -> nn.Module:
+          checkpoint: str = CHECKPOINT,
+          tod: str | None = None) -> nn.Module:
     train_loader, test_loader = make_loaders(data_root)
     model     = BNNClassifier().to(DEVICE)
     optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=0.00815)  # Optuna best
@@ -405,9 +429,10 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
         print(f"Warm-start weights loaded from {warm_start} "
               f"(must beat {best_val_acc:.1f}% to save)")
 
-    hb_frames = _load_hard_blank_frames()
+    hb_frames = _load_hard_blank_frames(tod=tod)
     if hb_frames is not None:
-        print(f"  Hard-blank frames loaded: {len(hb_frames)} (from {_SEQ_DIR})")
+        tod_label = f" [{tod}]" if tod else ""
+        print(f"  Hard-blank frames loaded: {len(hb_frames)}{tod_label} (from {_SEQ_DIR})")
 
     bboxes = _load_bboxes() if rrr_lambda > 0 else {}
     if bboxes:
@@ -621,6 +646,8 @@ Examples:
                         help=f"Early stopping patience in epochs (default: {EARLY_STOP_PAT})")
     parser.add_argument("--checkpoint", default=None, metavar="PATH",
                         help="Checkpoint file path (default: bnn_serengeti2.pth next to script)")
+    parser.add_argument("--tod", choices=["day", "night"], default=None,
+                        help="Filter hard-blank sequences by time-of-day (colourfulness metric)")
     args = parser.parse_args()
 
     ckpt_path = (os.path.join(_SCRIPT_DIR, args.checkpoint)
@@ -634,7 +661,7 @@ Examples:
         train(num_epochs=args.epochs, data_root=args.data_root,
               resume=args.resume, args_best_acc=args.best_acc,
               rrr_lambda=args.rrr_lambda, warm_start=args.warm_start,
-              patience=args.patience, checkpoint=ckpt_path)
+              patience=args.patience, checkpoint=ckpt_path, tod=args.tod)
 
     elif args.command == "check":
         if not args.images:

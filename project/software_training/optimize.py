@@ -37,10 +37,11 @@ OUTPUT_FILE  = Path(__file__).parent / "optuna_results.json"
 
 
 # ── Objective ─────────────────────────────────────────────────────────────────
-def objective(trial: optuna.Trial, data_root: str, num_epochs: int) -> float:
+def objective(trial: optuna.Trial, data_root: str, num_epochs: int,
+              blank_weight_max: float) -> float:
     lr           = trial.suggest_float("lr",           2e-4, 1e-3, log=True)
     weight_decay = trial.suggest_float("weight_decay", 5e-3, 5e-2, log=True)
-    blank_weight = trial.suggest_float("blank_weight", 1.0,  2.5)
+    blank_weight = trial.suggest_float("blank_weight", 1.0,  blank_weight_max)
     grad_clip    = trial.suggest_float("grad_clip",    0.5,  2.0)
 
     train_loader, test_loader = make_loaders(data_root)
@@ -59,7 +60,7 @@ def objective(trial: optuna.Trial, data_root: str, num_epochs: int) -> float:
         model.train()
         optimizer.zero_grad()
 
-        for step, (imgs, labels) in enumerate(train_loader):
+        for step, (imgs, labels, _stems) in enumerate(train_loader):
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
             loss = criterion(model(imgs), labels)
             (loss / ACCUM_STEPS).backward()
@@ -99,6 +100,10 @@ def main():
                         help=f"Epochs per trial (default: {TRIAL_EPOCHS})")
     parser.add_argument("--data-root", default="project/data_combined", metavar="DIR",
                         help="Dataset root (default: project/data_combined)")
+    parser.add_argument("--blank-weight-max", type=float, default=2.5, metavar="W",
+                        help="Upper bound for blank_weight search (default: 2.5; use ~3.5 for night)")
+    parser.add_argument("--out", default=None, metavar="PATH",
+                        help="JSON results file (default: optuna_results.json next to script)")
     args = parser.parse_args()
 
     print(f"\n{'='*60}")
@@ -107,7 +112,7 @@ def main():
     print(f"Trials      : {args.trials}")
     print(f"Epochs/trial: {args.epochs}")
     print(f"Dataset     : {args.data_root}")
-    print(f"Search space: lr, weight_decay, blank_weight, grad_clip")
+    print(f"Search space: lr, weight_decay, blank_weight (max={args.blank_weight_max}), grad_clip")
     print(f"{'='*60}\n")
 
     sampler = optuna.samplers.TPESampler(seed=42)
@@ -115,7 +120,7 @@ def main():
     study   = optuna.create_study(direction="maximize", sampler=sampler, pruner=pruner)
 
     study.optimize(
-        lambda trial: objective(trial, args.data_root, args.epochs),
+        lambda trial: objective(trial, args.data_root, args.epochs, args.blank_weight_max),
         n_trials=args.trials,
     )
 
@@ -147,8 +152,9 @@ def main():
             for t in study.trials
         ],
     }
-    OUTPUT_FILE.write_text(json.dumps(results, indent=2))
-    print(f"\nResults saved → {OUTPUT_FILE}")
+    out_path = Path(args.out) if args.out else OUTPUT_FILE
+    out_path.write_text(json.dumps(results, indent=2))
+    print(f"\nResults saved → {out_path}")
     print("\nTo train with best params, run:")
     print(f"  .venv/bin/python3 project/bnn_serengeti2.py train \\")
     print(f"    --data-root project/data_combined --epochs 50")
