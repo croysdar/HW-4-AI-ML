@@ -3,6 +3,8 @@
 /project/data_20k/*
 /project/data_combined/*
 /project/data_sequences/*
+/project/data_20k_day/*
+/project/data_20k_night/*
 *.pth
 *.zip
 
