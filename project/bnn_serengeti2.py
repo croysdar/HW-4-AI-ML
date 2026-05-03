@@ -140,13 +140,16 @@ class BNNClassifier(nn.Module):
 
 
 # ── Transforms ────────────────────────────────────────────────────────────────
-_BANNER_ROWS = 7   # camera timestamp banner height in pixels (at 224×224)
+_BORDER_PX = 5  # uniform border mask to remove camera edge artifacts (at 224×224)
 
 class _MaskBanner(torch.nn.Module):
-    """Zero the top N rows of a tensor to remove the camera timestamp banner."""
+    """Zero a uniform border around the image to remove camera edge artifacts."""
     def forward(self, t: torch.Tensor) -> torch.Tensor:
         t = t.clone()
-        t[:, :_BANNER_ROWS, :] = 0.0
+        t[:, :_BORDER_PX, :]  = 0.0  # top
+        t[:, -_BORDER_PX:, :] = 0.0  # bottom
+        t[:, :, :_BORDER_PX]  = 0.0  # left
+        t[:, :, -_BORDER_PX:] = 0.0  # right
         return t
 
 # Normalize to [-1, 1] so that sign() binarizes near the decision boundary.

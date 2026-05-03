@@ -42,7 +42,8 @@ from PIL import Image, ImageDraw
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent))
 
-from bnn_serengeti2 import BNNClassifier, _transform, _NONBLANK_IDX, DEVICE, CHECKPOINT
+from bnn_serengeti2 import (BNNClassifier, _transform, _NONBLANK_IDX, DEVICE, CHECKPOINT,
+                            _BORDER_PX)
 from gradcam import _to_b64
 
 _PROJECT_DIR = Path(__file__).parent.parent
@@ -63,9 +64,10 @@ def occlusion_map(model: torch.nn.Module, img_tensor: torch.Tensor,
     with torch.no_grad():
         base_p = torch.softmax(model(img_tensor), dim=1)[0, _NONBLANK_IDX].item()
 
+    B = _BORDER_PX
     masked_batch, positions = [], []
-    for y in range(0, H - patch + 1, stride):
-        for x in range(0, W - patch + 1, stride):
+    for y in range(B, H - B - patch + 1, stride):
+        for x in range(B, W - B - patch + 1, stride):
             m = img_tensor.clone()
             m[0, :, y:y + patch, x:x + patch] = fill
             masked_batch.append(m)
@@ -107,6 +109,19 @@ def _heatmap_to_pil(heatmap: np.ndarray, orig: Image.Image,
     colored = (cmap(h)[:, :, :3] * 255).astype(np.uint8)
     overlay = Image.fromarray(colored).resize(orig.size, Image.BILINEAR)
     return Image.blend(orig, overlay, alpha)
+
+
+def _apply_mask_overlay(pil: Image.Image) -> Image.Image:
+    """Draw black border over the regions _MaskBanner zeros out."""
+    img  = pil.copy()
+    draw = ImageDraw.Draw(img)
+    W, H = img.size
+    B = _BORDER_PX
+    draw.rectangle([0, 0, W, B], fill="black")       # top
+    draw.rectangle([0, H - B, W, H], fill="black")   # bottom
+    draw.rectangle([0, 0, B, H], fill="black")        # left
+    draw.rectangle([W - B, 0, W, H], fill="black")    # right
+    return img
 
 
 def _draw_boxes(pil: Image.Image, boxes: list) -> Image.Image:
@@ -209,9 +224,10 @@ def run(image_paths: list[Path], checkpoint: str, out_path: Path,
         heatmap, p_animal = occlusion_map(model, tensor, patch=patch, stride=stride)
         print(f"p={p_animal:.3f}")
 
-        occ_pil = _heatmap_to_pil(heatmap, orig)
+        masked_orig = _apply_mask_overlay(orig)
+        occ_pil = _heatmap_to_pil(heatmap, masked_orig)
         boxes   = bboxes.get(stem, {}).get("boxes", [])
-        cards.append(_card(stem, orig, occ_pil, boxes, p_animal))
+        cards.append(_card(stem, masked_orig, occ_pil, boxes, p_animal))
 
     html = _build_html(cards, checkpoint, patch, stride)
     out_path.parent.mkdir(parents=True, exist_ok=True)
