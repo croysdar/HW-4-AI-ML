@@ -1,6 +1,6 @@
 # Architectural Roadmap & Future Work
 
-**Project:** Ultra-Low-Power BNN Wildlife Camera Accelerator  
+**Project:** Ultra-Low-Power BNN Wildlife Smart Filter  
 **Course:** ECE 510 - Hardware for AI  
 **Author:** Rebecca Gilbert-Croysdale
 
@@ -41,6 +41,20 @@ The design uses a **hybrid-precision 4-layer BNN** trained on Caltech Camera Tra
 Completed. Conv1 retained at 8-bit (nn.Conv2d on host CPU); Conv2–4 are 1-bit BinarizeConv2d on chiplet. Conv4 widened to 256 channels. Accuracy improved from 73.4% → 87.1%.
 
 The chiplet remains purely 1-bit — no mixed-precision MAC array needed on chip.
+
+### 2.1.1 Architecture Decision Record: INT8 Layer Stays on Host CPU
+
+**Decision (M2, 2026-05-02):** Conv1 will remain on the ARM Host CPU as an INT8 fixed-point layer. It will **not** be moved onto the custom BNN chiplet.
+
+**Hardware rationale:**
+
+1. **Silicon area explosion.** A full INT8 MAC unit (8-bit × 8-bit → 16-bit accumulator) requires roughly 4–8× the transistor area of a 1-bit XNOR gate. Placing even one INT8 MAC array on the chiplet would require a distinct datapath alongside the existing XNOR+Popcount engine. For a 256-wide vector unit operating at 300 MHz, an INT8 lane array would consume on the order of 50–100 kGE (gate equivalents) — a significant fraction of the total chiplet area budget for a die designed around ultra-minimal 1-bit logic.
+
+2. **Dark silicon / underutilization.** The chiplet executes Conv1, Conv2, Conv3, Conv4 sequentially. If an INT8 MAC array were included on chip, it would be active only during the Conv1 phase (~17% of total per-layer compute time, since Conv1 is 224×224 vs. Conv2–4 at 112×112, 56×56, 28×28 respectively). The INT8 array would sit dark and leaking power during the three 1-bit layers that dominate inference time. Dark silicon at constrained power budgets is an unacceptable waste.
+
+3. **SystemVerilog control simplicity.** The existing `bnn_conv_core.sv` implements a single, uniform 256-bit XNOR+Popcount datapath. Adding INT8 support would require a second control FSM (or a mode-switched FSM), separate precision-aware address generation, and an INT8-to-1-bit format conversion at the Conv1/Conv2 boundary. Keeping INT8 on the host CPU means the chiplet control logic remains a single-mode streaming engine — cleaner RTL, faster timing closure, fewer verification corner cases.
+
+**Validation (M2):** Fake-quantization experiments (`project/m2/validate_precision.py`) confirm an accuracy delta of −4.0% and logit MAE of 0.2453 for INT8 Conv1 vs. FP32 Conv1 on 100 test images. This cost is acceptable given the solar power constraint and high-recall mission objective (see `project/m2/precision.md`).
 
 ### 2.2 ~~Optuna Hyperparameter Search~~ ✅ DONE
 
