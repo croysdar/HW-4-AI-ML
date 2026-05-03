@@ -1,6 +1,6 @@
 # Architectural Roadmap & Future Work
 
-**Project:** Ultra-Low-Power BNN Wildlife Smart Filter  
+**Project:** Ultra-Low-Power BNN Trail Cam Smart Filter  
 **Course:** ECE 510 - Hardware for AI  
 **Author:** Rebecca Gilbert-Croysdale
 
@@ -10,13 +10,13 @@
 
 The design uses a **hybrid-precision 4-layer BNN** trained on Caltech Camera Traps + Serengeti2 (38,835 train images).
 
-| Metric | Value |
-|---|---|
-| Val accuracy | **87.1%** (best epoch 14/21, early stopped) |
-| AUC-ROC | 0.9377 |
-| Night recall | 95.3% @ threshold 0.5 |
-| Night FAR | 13.4% @ threshold 0.6 (recommended) |
-| Inference throughput | 566 img/s (1.76 ms/img on MPS) |
+| Metric               | Value                                       |
+| -------------------- | ------------------------------------------- |
+| Val accuracy         | **87.1%** (best epoch 14/21, early stopped) |
+| AUC-ROC              | 0.9377                                      |
+| Night recall         | 95.3% @ threshold 0.5                       |
+| Night FAR            | 13.4% @ threshold 0.6 (recommended)         |
+| Inference throughput | 566 img/s (1.76 ms/img on MPS)              |
 
 **Interface:** 256-bit AXI4-Stream @ 300 MHz (9.6 GB/s rated, 8.0 GB/s effective)  
 **Compute:** 1-bit XNOR-Popcount engine (Conv2–4 on chiplet)  
@@ -24,13 +24,13 @@ The design uses a **hybrid-precision 4-layer BNN** trained on Caltech Camera Tra
 
 ### Architecture progression
 
-| Version | Val Accuracy | Change |
-|---|---|---|
-| 3-layer all-binary | 73.4% | Original prototype |
-| 4-layer all-binary | 76.2% | Added Conv4 (128→256 channels) |
-| Hybrid precision | 85.2% | Conv1 retained as 8-bit on host |
-| + Expanded dataset + weighted loss | 85.8% | 38k images, blank weight=1.5 |
-| **+ Optuna HPs (current)** | **87.1%** | lr/wd/blank_weight/grad_clip tuned |
+| Version                            | Val Accuracy | Change                             |
+| ---------------------------------- | ------------ | ---------------------------------- |
+| 3-layer all-binary                 | 73.4%        | Original prototype                 |
+| 4-layer all-binary                 | 76.2%        | Added Conv4 (128→256 channels)     |
+| Hybrid precision                   | 85.2%        | Conv1 retained as 8-bit on host    |
+| + Expanded dataset + weighted loss | 85.8%        | 38k images, blank weight=1.5       |
+| **+ Optuna HPs (current)**         | **87.1%**    | lr/wd/blank_weight/grad_clip tuned |
 
 ---
 
@@ -95,6 +95,7 @@ The per-frame FAR from the BNN (~13% at threshold 0.5) is too high for 24/7 cont
 **Fix:** Add a small counter in SystemVerilog that only asserts the high-res camera trigger after N consecutive "animal" frames from the chiplet. A random noise false alarm must persist across N independent frames, which is exponentially unlikely.
 
 **Math:**
+
 - Per-frame FAR = 13.1% at threshold 0.5
 - 3-frame effective FAR = 0.131³ = **0.22%**
 - 5-frame effective FAR = 0.131⁵ = **0.004%**

@@ -1,0 +1,12 @@
+── Phase 1: 32 random vectors, continuous valid ──
+── Phase 2: 4 idle cycles — accumulator must hold ──
+── Phase 3: 8 more vectors after idle ──
+── Phase 4: accum_clear — must zero accumulator ──
+  accum_clear OK: accum_out=0 (expected 0)
+── Phase 5: 8 vectors after accum_clear ──
+── Phase 6: synchronous rst — must zero accumulator ──
+  rst OK: accum_out=0 (expected 0)
+─────────────────────────────────────────────────
+VERIFIABLE PASS — all vectors matched $countones reference
+─────────────────────────────────────────────────
+project/m2/tb/tb_compute_core.sv:200: $finish called at 646000 (1ps)

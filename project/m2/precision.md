@@ -1,6 +1,6 @@
 # M2 Precision Strategy: Heterogeneous INT8 / 1-bit Hybrid
 
-**Project:** Ultra-Low-Power BNN Wildlife Smart Filter
+**Project:** Ultra-Low-Power BNN Trail Cam Smart Filter
 **Course:** ECE 510 — Hardware for AI, Spring 2026
 **Author:** Rebecca Gilbert-Croysdale
 

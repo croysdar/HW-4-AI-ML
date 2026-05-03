@@ -4,7 +4,7 @@ Rebecca Gilbert-Croysdale
 
 ECE 410/510 Spring 2026
 
-## Project: Ultra-Low-Power BNN Wildlife Smart Filter
+## Project: Ultra-Low-Power BNN Trail Cam Smart Filter
 
 ---
 
@@ -40,3 +40,25 @@ The decision to run Conv1 at INT8 (rather than FP32) further relaxes this bandwi
 The architecture uses heterogeneous precision. Conv1 is retained at INT8 fixed-point on the ARM host CPU: binarizing the layer that operates directly on raw 8-bit RGB pixels produces unacceptable accuracy collapse, and an INT8 MAC unit would require 4–8× the transistor area of a 1-bit XNOR gate on-chip while sitting idle during the three binary layers that dominate inference time. Fake-quantization experiments confirm a −4.0% accuracy delta and logit MAE of 0.2453 for INT8 vs. FP32 Conv1 — acceptable for this high-recall, power-constrained deployment (see `project/m2/precision.md`).
 
 Conv2–4 run as 1-bit XNOR-popcount on the chiplet. Binary quantization reduces multiply cost to a single gate and addition cost to a bit-count. The M1 baseline showed the chiplet achieves 379.1 FLOP/byte arithmetic intensity — deeply compute-bound — confirming that 1-bit precision does not shift the bottleneck to memory bandwidth. The 32-bit signed accumulator preserves the full popcount range (up to ±256 per 256-bit vector) with ample headroom for multi-vector accumulation across kernel windows.
+
+## 6. Reproducibility
+
+**Simulator:** Icarus Verilog (iverilog) v13.0
+
+To compile and run the `compute_core` self-checking testbench, execute the following commands from the repository root:
+
+```bash
+mkdir -p project/m2/sim
+
+# Compute core (XNOR-Popcount engine)
+iverilog -g2012 -o project/m2/sim/compute_core.vvp \
+  project/m2/rtl/compute_core.sv project/m2/tb/tb_compute_core.sv
+vvp project/m2/sim/compute_core.vvp | tee project/m2/sim/compute_core_run.log
+
+# AXI4-Stream interface (skid buffer)
+iverilog -g2012 -o project/m2/sim/interface.vvp \
+  project/m2/rtl/interface.sv project/m2/tb/tb_interface.sv
+vvp project/m2/sim/interface.vvp | tee project/m2/sim/interface_run.log
+```
+
+Both logs end with `VERIFIABLE PASS`. See `project/m2/README.md` for full details and waveform instructions.

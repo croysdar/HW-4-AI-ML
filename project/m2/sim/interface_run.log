@@ -1,0 +1,11 @@
+=================================================
+ STARTING AXI-STREAM INTERFACE VERIFICATION
+=================================================
+Phase 1: 50 transactions, core_ready always HIGH
+Phase 2: 50 transactions, core_ready randomly stalls
+=================================================
+ Sent    : 100 transactions
+ Received: 100 transactions
+VERIFIABLE PASS — All AXI protocols and data matched
+=================================================
+project/m2/tb/tb_interface.sv:183: $finish called at 1825000 (1ps)

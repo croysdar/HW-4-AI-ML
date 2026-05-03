@@ -43,6 +43,7 @@ __pycache__/
 .DS_Store
 
 # iverilog compiled simulation binaries
+*.vvp
 codefest/cf04/hdl/mac_a_sim
 codefest/cf04/hdl/mac_b_sim
 codefest/cf04/hdl/mac_sim
