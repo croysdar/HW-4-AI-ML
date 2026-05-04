@@ -115,6 +115,9 @@ module tb_compute_core;
 
     // ── Main test sequence ────────────────────────────────────────────────────
     initial begin
+        $dumpfile("project/m2/sim/compute_core.vcd");
+        $dumpvars(0, tb_compute_core);
+
         // Initialise all inputs
         rst          = 1'b1;
         s_valid      = 1'b0;
