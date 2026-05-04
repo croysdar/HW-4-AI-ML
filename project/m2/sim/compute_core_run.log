@@ -1,3 +1,4 @@
+VCD info: dumpfile project/m2/sim/compute_core.vcd opened for output.
 ── Phase 1: 32 random vectors, continuous valid ──
 ── Phase 2: 4 idle cycles — accumulator must hold ──
 ── Phase 3: 8 more vectors after idle ──
@@ -9,4 +10,4 @@
 ─────────────────────────────────────────────────
 VERIFIABLE PASS — all vectors matched $countones reference
 ─────────────────────────────────────────────────
-project/m2/tb/tb_compute_core.sv:200: $finish called at 646000 (1ps)
+project/m2/tb/tb_compute_core.sv:203: $finish called at 646000 (1ps)
