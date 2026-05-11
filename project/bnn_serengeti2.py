@@ -102,12 +102,23 @@ class BinarizeConv2d(nn.Conv2d):
     Simulates the XNOR+Popcount engine in the hardware chiplet.
     Latent real-valued weights are stored in self.weight and clipped to
     [-1, 1] after every optimizer step by the training loop.
+
+    alpha: per-channel XNOR-Net scaling factor (shape [out_channels]).
+    Initialized to 1.0; learned during training to recover magnitude
+    information lost by binarization. In hardware, quantized to INT8 and
+    applied as a per-channel multiplier after the popcount — one multiply
+    per channel per layer, not per MAC.
     """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.alpha = nn.Parameter(torch.ones(self.out_channels))
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         binary_w = binarize(self.weight)
         binary_x = binarize(x)
-        return F.conv2d(binary_x, binary_w, self.bias,
-                        self.stride, self.padding, self.dilation, self.groups)
+        out = F.conv2d(binary_x, binary_w, self.bias,
+                       self.stride, self.padding, self.dilation, self.groups)
+        return out * self.alpha.view(1, -1, 1, 1)
 
 
 # ── BNN Classifier ────────────────────────────────────────────────────────────
@@ -337,7 +348,7 @@ def _filter_dataset(ds: datasets.ImageFolder, blacklist: set) -> torch.utils.dat
 def make_loaders(data_root: str = DATA_ROOT):
     blacklist = _load_blacklist()
     if blacklist:
-        print(f"Blacklist: {len(blacklist)} images excluded ({', '.join(sorted(blacklist))})")
+        print(f"Blacklist: {len(blacklist)} images excluded")
 
     train_ds = datasets.ImageFolder(os.path.join(data_root, "train"), transform=_train_transform)
     test_ds  = datasets.ImageFolder(os.path.join(data_root, "test"),  transform=_transform)
@@ -386,13 +397,15 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
           warm_start: str | None = None,
           patience: int = EARLY_STOP_PAT,
           checkpoint: str = CHECKPOINT,
-          tod: str | None = None) -> nn.Module:
+          tod: str | None = None,
+          lr: float = LR,
+          weight_decay: float = 0.00815,
+          blank_weight: float = 1.27,
+          grad_clip: float = GRAD_CLIP) -> nn.Module:
     train_loader, test_loader = make_loaders(data_root)
     model     = BNNClassifier().to(DEVICE)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=0.00815)  # Optuna best
-    # Upweight blank class to penalize false alarms — addresses night IR blank misclassification.
-    # Weight [1.5, 1.0] means model pays 1.5× penalty for calling a blank image "animal".
-    class_weights = torch.tensor([1.27, 1.0]).to(DEVICE)  # Optuna best
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    class_weights = torch.tensor([blank_weight, 1.0]).to(DEVICE)
     criterion = nn.CrossEntropyLoss(weight=class_weights)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=num_epochs, eta_min=1e-6
@@ -406,7 +419,7 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
         ckpt = torch.load(checkpoint, map_location=DEVICE, weights_only=False)
         if "model" in ckpt:
             # New format — full restore
-            model.load_state_dict(ckpt["model"])
+            model.load_state_dict(ckpt["model"], strict=False)
             optimizer.load_state_dict(ckpt["optimizer"])
             scheduler.load_state_dict(ckpt["scheduler"])
             best_val_acc = ckpt["best_val_acc"]
@@ -414,7 +427,7 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
             print(f"Resumed from epoch {ckpt['epoch']} — best val acc so far: {best_val_acc:.1f}%")
         else:
             # Old format (weights only) — load weights, fresh optimizer/scheduler
-            model.load_state_dict(ckpt)
+            model.load_state_dict(ckpt, strict=False)
             best_val_acc = args_best_acc if args_best_acc > 0 else 0.0
             print("Loaded weights from checkpoint (old format — optimizer state unavailable).")
             print(f"Warm restart from trained weights. Will only save if val acc > {best_val_acc:.1f}%")
@@ -423,7 +436,7 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
 
     if warm_start and os.path.exists(warm_start):
         ckpt = torch.load(warm_start, map_location=DEVICE, weights_only=False)
-        model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+        model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt, strict=False)
         if isinstance(ckpt, dict) and "best_val_acc" in ckpt:
             best_val_acc = ckpt["best_val_acc"]
         print(f"Warm-start weights loaded from {warm_start} "
@@ -460,7 +473,7 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
             # Register bn3 hook to capture feature maps for RRR loss
             _bn3_feat = {}
             if rrr_lambda > 0:
-                def _fwd_hook(m, inp, out):
+                def _fwd_hook(_m, _inp, out):
                     _bn3_feat["feat"] = out
                 _hook_handle = model.bn3.register_forward_hook(_fwd_hook)
 
@@ -483,7 +496,7 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
 
             last_batch = (step + 1) == len(train_loader)
             if (step + 1) % ACCUM_STEPS == 0 or last_batch:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
                 optimizer.step()
                 with torch.no_grad():
                     for m in model.modules():
@@ -555,7 +568,7 @@ def load_model(path: str = CHECKPOINT) -> nn.Module:
     """Load a saved BNNClassifier from a .pth checkpoint."""
     model = BNNClassifier()
     ckpt  = torch.load(path, map_location=DEVICE, weights_only=False)
-    model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+    model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt, strict=False)
     model.to(DEVICE)
     model.eval()
     return model
@@ -648,6 +661,14 @@ Examples:
                         help="Checkpoint file path (default: bnn_serengeti2.pth next to script)")
     parser.add_argument("--tod", choices=["day", "night"], default=None,
                         help="Filter hard-blank sequences by time-of-day (colourfulness metric)")
+    parser.add_argument("--lr", type=float, default=LR,
+                        help=f"Learning rate (default: {LR})")
+    parser.add_argument("--weight-decay", type=float, default=0.00815,
+                        help="AdamW weight decay (default: 0.00815)")
+    parser.add_argument("--blank-weight", type=float, default=1.27,
+                        help="CrossEntropy weight for blank class (default: 1.27)")
+    parser.add_argument("--grad-clip", type=float, default=GRAD_CLIP,
+                        help=f"Gradient clipping max norm (default: {GRAD_CLIP})")
     args = parser.parse_args()
 
     ckpt_path = (os.path.join(_SCRIPT_DIR, args.checkpoint)
@@ -661,7 +682,9 @@ Examples:
         train(num_epochs=args.epochs, data_root=args.data_root,
               resume=args.resume, args_best_acc=args.best_acc,
               rrr_lambda=args.rrr_lambda, warm_start=args.warm_start,
-              patience=args.patience, checkpoint=ckpt_path, tod=args.tod)
+              patience=args.patience, checkpoint=ckpt_path, tod=args.tod,
+              lr=args.lr, weight_decay=args.weight_decay,
+              blank_weight=args.blank_weight, grad_clip=args.grad_clip)
 
     elif args.command == "check":
         if not args.images:

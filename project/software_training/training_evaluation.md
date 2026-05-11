@@ -47,6 +47,8 @@ Conv1 runs on the host ARM CPU and outputs 8-bit feature maps (32×224×224) ove
 
 Training data sourced from Caltech Camera Traps (18k blank + 18k animal) combined with Serengeti2 dataset, all at 224×224. Test images include Caltech metadata timestamps enabling day/night breakdown.
 
+**On input resolution:** 224×224 is sufficient for this task. Animal presence detection is a coarse binary signal — animals are large relative to the frame and fine spatial detail is not required. The ResNet-50 teacher saturates at 224px, confirming the task does not benefit from higher resolution. Doubling to 448×448 would cost 4× compute and memory bandwidth (compute scales with pixel area) with no expected accuracy gain. Additionally, the binary activations in Conv2–Conv4 discard fine-grained spatial detail as it propagates through the network, so any extra resolution would be compressed out before reaching the classifier.
+
 ---
 
 ## Training Configuration (Optuna-optimized)

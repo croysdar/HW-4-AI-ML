@@ -5,6 +5,7 @@
 /project/data_sequences/*
 /project/data_20k_day/*
 /project/data_20k_night/*
+/project/data_caltech_night_extra/*
 *.pth
 *.zip
 
@@ -33,6 +34,10 @@ caltech_bboxes_20200316.json
 /project/bbox_annotations.json
 /project/ser_tod_labels.csv
 baseline_profile_output.txt
+
+# Optuna study output
+/project/software_training/optuna_day.json
+/project/software_training/optuna_night.json
 
 # Python
 __pycache__/

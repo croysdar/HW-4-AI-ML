@@ -548,7 +548,7 @@ def train(seq_dir: Path, epochs: int = EPOCHS, conc_layer: str = "bn3",
     model = BNNClassifier().to(DEVICE)
     if warm_start:
         ckpt = torch.load(warm_start, map_location=DEVICE, weights_only=True)
-        model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+        model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt, strict=False)
         print(f"  Warm-start weights loaded from {warm_start}")
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.00815)

@@ -231,7 +231,7 @@ def run(image_paths: list[Path], checkpoint: str, out_path: Path,
     print(f"Loading checkpoint: {checkpoint}")
     ckpt  = torch.load(checkpoint, map_location=DEVICE, weights_only=True)
     model = BNNClassifier().to(DEVICE).eval()
-    model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+    model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt, strict=False)
 
     bboxes = json.loads(bbox_path.read_text()) if bbox_path.exists() else {}
 

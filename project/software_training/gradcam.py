@@ -364,7 +364,7 @@ def run(image_path: str, checkpoints: list[str],
     for ckpt_path in checkpoints:
         m = BNNClassifier()
         ckpt = torch.load(ckpt_path, map_location=DEVICE, weights_only=True)
-        m.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+        m.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt, strict=False)
         m.to(DEVICE).eval()
         models.append(m)
 

@@ -143,7 +143,7 @@ def main() -> None:
     # ── Load reference model ──────────────────────────────────────────────────
     reference = BNNClassifier().to(DEVICE)
     ckpt = torch.load(_CKPT, map_location=DEVICE, weights_only=False)
-    reference.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+    reference.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt, strict=False)
     reference.eval()
 
     # ── Build DUT (same weights, Conv1 fake-quantized to INT8) ───────────────

@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from bnn_serengeti2 import (
     BNNClassifier, _transform, CHECKPOINT, DEVICE,
     _BLANK_IDX, _NONBLANK_IDX, _tta_probs,
+    _colourfulness, _COLOUR_THRESHOLD,
 )
 
 # ── Metadata reconstruction ───────────────────────────────────────────────────
@@ -140,11 +141,15 @@ def _time_of_day(date_str: str) -> str:
 
 
 # ── Hard-blank sequence evaluation ───────────────────────────────────────────
-def eval_hard_blanks(seq_dir: Path, models: list, threshold: float, filter_n: int = 3):
+def eval_hard_blanks(seq_dir: Path, models: list, threshold: float,
+                     filter_n: int = 3, tod: str | None = None):
     """
     Evaluate on PIR-triggered blank sequences from data_sequences/blank/.
     These are selection-biased hard negatives (not in the training set) and the
     main benchmark for measuring whether retraining reduced persistent false alarms.
+
+    tod: 'day', 'night', or None (all). Filters by colourfulness score of the
+    first frame, matching the metric used in bnn_serengeti2._load_hard_blank_frames.
     """
     index_path = seq_dir / "seq_index.json"
     if not index_path.exists():
@@ -162,6 +167,12 @@ def eval_hard_blanks(seq_dir: Path, models: list, threshold: float, filter_n: in
         frames   = sorted(seq_path.glob("frame_*.jpg"))
         if not frames:
             continue
+
+        if tod is not None:
+            score   = _colourfulness(frames[0])
+            seq_tod = "day" if score >= _COLOUR_THRESHOLD else "night"
+            if seq_tod != tod:
+                continue
 
         detections = []
         for f in frames:
@@ -186,8 +197,9 @@ def eval_hard_blanks(seq_dir: Path, models: list, threshold: float, filter_n: in
     seq_far      = 100 * seq_fp   / total_seqs   if total_seqs   else 0
 
     W = 52
+    tod_label = f" [{tod} only]" if tod else ""
     print("\n" + "═" * W)
-    print("  HARD BLANK SEQUENCES  (PIR-triggered, not in training set)")
+    print(f"  HARD BLANK SEQUENCES  (PIR-triggered, not in training set){tod_label}")
     print("═" * W)
     print(f"  {total_seqs} sequences  ×  {total_frames // total_seqs if total_seqs else 0} frames")
     print(f"  Per-frame FAR    : {frame_far:.1f}%   (FP={frame_fp}  TN={frame_tn})")
@@ -199,7 +211,7 @@ def eval_hard_blanks(seq_dir: Path, models: list, threshold: float, filter_n: in
 def _load_model(checkpoint: str) -> torch.nn.Module:
     model = BNNClassifier()
     ckpt = torch.load(checkpoint, map_location=DEVICE, weights_only=True)
-    model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+    model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt, strict=False)
     model.to(DEVICE)
     model.eval()
     return model
@@ -208,7 +220,7 @@ def _load_model(checkpoint: str) -> torch.nn.Module:
 def run_evaluation(data_root: str, metadata_path: str, checkpoint: str,
                    threshold: float = 0.5, use_tta: bool = False,
                    ensemble_checkpoint: str = None, ir_labels_csv: str = None,
-                   seq_dir: str = None, filter_n: int = 3):
+                   seq_dir: str = None, filter_n: int = 3, tod: str | None = None):
     test_dir = Path(data_root) / "test"
     if not test_dir.exists():
         raise FileNotFoundError(f"Test directory not found: {test_dir}")
@@ -266,10 +278,10 @@ def run_evaluation(data_root: str, metadata_path: str, checkpoint: str,
                 else:
                     cell = "fn"; fn += 1
 
-                img_path = dataset.imgs[img_index][0]
-                stem     = Path(img_path).stem
-                tod      = ir_map.get(stem) or _time_of_day(date_map.get(stem, ""))
-                tod_counts[tod][cell] += 1
+                img_path  = dataset.imgs[img_index][0]
+                stem      = Path(img_path).stem
+                img_tod   = ir_map.get(stem) or _time_of_day(date_map.get(stem, ""))
+                tod_counts[img_tod][cell] += 1
 
                 img_index += 1
 
@@ -337,7 +349,7 @@ def run_evaluation(data_root: str, metadata_path: str, checkpoint: str,
 
     if seq_dir and Path(seq_dir).exists():
         models = [model] + ([model2] if model2 else [])
-        eval_hard_blanks(Path(seq_dir), models, threshold, filter_n)
+        eval_hard_blanks(Path(seq_dir), models, threshold, filter_n, tod)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -365,15 +377,17 @@ if __name__ == "__main__":
                              "(default: project/data_sequences)")
     parser.add_argument("--filter-n", type=int, default=3, metavar="N",
                         help="Consecutive frames required for temporal filter (default: 3)")
+    parser.add_argument("--tod", default=None, choices=["day", "night"],
+                        help="Filter hard-blank sequences by colourfulness score (default: all)")
     args = parser.parse_args()
 
     if args.threshold is not None:
         run_evaluation(args.data_root, args.metadata, args.checkpoint,
                        args.threshold, args.tta, args.ensemble, args.ir_labels,
-                       args.seq_dir, args.filter_n)
+                       args.seq_dir, args.filter_n, args.tod)
     else:
         for t in [0.5, 0.6, 0.7]:
             print(f"\n{'▶'*3}  THRESHOLD = {t}  {'◀'*3}")
             run_evaluation(args.data_root, args.metadata, args.checkpoint,
                            t, args.tta, args.ensemble, args.ir_labels,
-                           args.seq_dir, args.filter_n)
+                           args.seq_dir, args.filter_n, args.tod)

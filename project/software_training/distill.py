@@ -43,11 +43,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
-from torchvision import datasets, models, transforms
+from torchvision import models
 
 from bnn_serengeti2 import (
-    BNNClassifier, evaluate,
+    BNNClassifier, evaluate, make_loaders,
+    _train_transform, _transform,
     DEVICE, BATCH_SIZE, ACCUM_STEPS, BinarizeConv2d,
     LR, GRAD_CLIP,
 )
@@ -90,46 +90,21 @@ def distill_loss(
     return alpha * kl + (1.0 - alpha) * ce
 
 
-# ── Shared transform (same as bnn_serengeti2 train augmentation) ──────────────
-_train_transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.RandomHorizontalFlip(),
-    transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.2),
-    transforms.RandomGrayscale(p=0.2),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
-])
-
-_val_transform = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
-])
-
-
-def _make_loaders_custom(data_root: str):
-    train_dir = Path(data_root) / "train"
-    test_dir  = Path(data_root) / "test"
-    train_ds  = datasets.ImageFolder(str(train_dir), transform=_train_transform)
-    val_ds    = datasets.ImageFolder(str(test_dir),  transform=_val_transform)
-    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True,
-                              num_workers=4, pin_memory=True, persistent_workers=True)
-    val_loader   = DataLoader(val_ds,   batch_size=64, shuffle=False,
-                              num_workers=4, pin_memory=True, persistent_workers=True)
-    return train_loader, val_loader
 
 
 # ── Phase 1: Train teacher ────────────────────────────────────────────────────
-def train_teacher(data_root: str, num_epochs: int):
+def train_teacher(data_root: str, num_epochs: int,
+                  teacher_ckpt: Path = TEACHER_CKPT,
+                  blank_weight: float = BLANK_WEIGHT):
     print(f"\n{'='*60}")
     print("PHASE 1 — Teacher Training (ResNet-50 fine-tune)")
     print(f"{'='*60}")
     print(f"Device   : {DEVICE}")
     print(f"Epochs   : {num_epochs}")
     print(f"Dataset  : {data_root}")
-    print(f"Output   : {TEACHER_CKPT}\n")
+    print(f"Output   : {teacher_ckpt}\n")
 
-    train_loader, val_loader = _make_loaders_custom(data_root)
+    train_loader, val_loader = make_loaders(data_root)
 
     model     = make_teacher().to(DEVICE)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-4)
@@ -137,14 +112,14 @@ def train_teacher(data_root: str, num_epochs: int):
         optimizer, T_max=num_epochs, eta_min=1e-6
     )
     criterion = nn.CrossEntropyLoss(
-        weight=torch.tensor([BLANK_WEIGHT, 1.0]).to(DEVICE)
+        weight=torch.tensor([blank_weight, 1.0]).to(DEVICE)
     )
 
     best_val_acc = 0.0
     no_improve   = 0
 
-    print(f"  {'Ep':>3}  {'TrLoss':>7}  {'TrAcc':>6}  {'VaLoss':>7}  {'VaAcc':>6}  {'Time':>6}")
-    print(f"  {'─'*50}")
+    print(f"  {'Ep':>3}  {'TrLoss':>7}  {'TrAcc':>6}  {'VaLoss':>7}  {'VaAcc':>6}  {'Recall':>7}  {'FAR':>6}  {'Time':>6}")
+    print(f"  {'─'*72}")
 
     for epoch in range(1, num_epochs + 1):
         t0 = time.time()
@@ -153,7 +128,7 @@ def train_teacher(data_root: str, num_epochs: int):
 
         pbar = tqdm(train_loader, desc=f"Epoch {epoch:>3}", unit="batch",
                     leave=False, disable=not sys.stdout.isatty())
-        for imgs, labels in pbar:
+        for imgs, labels, _ in pbar:
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
             optimizer.zero_grad()
             logits = model(imgs)
@@ -169,24 +144,17 @@ def train_teacher(data_root: str, num_epochs: int):
         tr_loss = total_loss / total_n
         tr_acc  = 100.0 * total_correct / total_n
 
-        model.eval()
-        val_loss = val_correct = val_n = 0
-        with torch.no_grad():
-            for imgs, labels in val_loader:
-                imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
-                logits    = model(imgs)
-                val_loss += criterion(logits, labels).item() * len(labels)
-                val_correct += (logits.argmax(1) == labels).sum().item()
-                val_n += len(labels)
+        va_loss, va_acc, tp, tn, fp, fn = evaluate(model, val_loader, criterion)
+        recall = 100.0 * tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        far    = 100.0 * fp / (fp + tn) if (fp + tn) > 0 else 0.0
 
-        va_loss = val_loss / val_n
-        va_acc  = 100.0 * val_correct / val_n
         elapsed = time.time() - t0
         mins, secs = divmod(int(elapsed), 60)
         marker = " ✓" if va_acc > best_val_acc else ""
 
         print(f"  {epoch:>3}  {tr_loss:>7.4f}  {tr_acc:>5.1f}%  "
-              f"{va_loss:>7.4f}  {va_acc:>5.1f}%  {mins}m{secs:02d}s{marker}")
+              f"{va_loss:>7.4f}  {va_acc:>5.1f}%  {recall:>6.1f}%  {far:>5.1f}%  "
+              f"{mins}m{secs:02d}s{marker}")
 
         scheduler.step()
 
@@ -194,7 +162,7 @@ def train_teacher(data_root: str, num_epochs: int):
             best_val_acc = va_acc
             no_improve   = 0
             torch.save({"epoch": epoch, "model": model.state_dict(),
-                        "best_val_acc": best_val_acc}, TEACHER_CKPT)
+                        "best_val_acc": best_val_acc}, teacher_ckpt)
         else:
             no_improve += 1
             if no_improve >= EARLY_STOP_PAT_TEACHER:
@@ -202,11 +170,17 @@ def train_teacher(data_root: str, num_epochs: int):
                 break
 
     print(f"\nTeacher best val accuracy: {best_val_acc:.1f}%")
-    print(f"Saved → {TEACHER_CKPT}")
+    print(f"Saved → {teacher_ckpt}")
 
 
 # ── Phase 2: Distill student ──────────────────────────────────────────────────
-def train_student(data_root: str, num_epochs: int, resume: bool = False):
+def train_student(data_root: str, num_epochs: int, resume: bool = False,
+                  teacher_ckpt: Path = TEACHER_CKPT,
+                  student_ckpt: Path = STUDENT_CKPT,
+                  blank_weight: float = BLANK_WEIGHT,
+                  lr: float = LR,
+                  weight_decay: float = 0.00815,
+                  grad_clip: float = GRAD_CLIP):
     print(f"\n{'='*60}")
     print("PHASE 2 — Student Distillation (BNNClassifier)")
     print(f"{'='*60}")
@@ -215,18 +189,18 @@ def train_student(data_root: str, num_epochs: int, resume: bool = False):
     print(f"Temperature : {TEMPERATURE}")
     print(f"Alpha       : {ALPHA}  (KL weight; {1-ALPHA:.1f} on hard CE)")
     print(f"Dataset     : {data_root}")
-    print(f"Teacher     : {TEACHER_CKPT}")
-    print(f"Output      : {STUDENT_CKPT}\n")
+    print(f"Teacher     : {teacher_ckpt}")
+    print(f"Output      : {student_ckpt}\n")
 
-    if not TEACHER_CKPT.exists():
+    if not teacher_ckpt.exists():
         raise FileNotFoundError(
-            f"Teacher checkpoint not found: {TEACHER_CKPT}\n"
+            f"Teacher checkpoint not found: {teacher_ckpt}\n"
             "Run `distill.py teacher` first."
         )
 
     # Load teacher — frozen, eval mode only
     teacher = make_teacher().to(DEVICE)
-    t_ckpt  = torch.load(TEACHER_CKPT, map_location=DEVICE, weights_only=True)
+    t_ckpt  = torch.load(teacher_ckpt, map_location=DEVICE, weights_only=True)
     teacher.load_state_dict(t_ckpt["model"])
     teacher.eval()
     for p in teacher.parameters():
@@ -235,26 +209,26 @@ def train_student(data_root: str, num_epochs: int, resume: bool = False):
 
     # Student
     student   = BNNClassifier().to(DEVICE)
-    optimizer = torch.optim.AdamW(student.parameters(), lr=LR, weight_decay=0.00815)
+    optimizer = torch.optim.AdamW(student.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=num_epochs, eta_min=1e-6
     )
-    class_weights = torch.tensor([BLANK_WEIGHT, 1.0]).to(DEVICE)
+    class_weights = torch.tensor([blank_weight, 1.0]).to(DEVICE)
 
     start_epoch  = 1
     best_val_acc = 0.0
     no_improve   = 0
 
-    if resume and STUDENT_CKPT.exists():
-        ckpt = torch.load(STUDENT_CKPT, map_location=DEVICE, weights_only=True)
-        student.load_state_dict(ckpt["model"])
+    if resume and student_ckpt.exists():
+        ckpt = torch.load(student_ckpt, map_location=DEVICE, weights_only=True)
+        student.load_state_dict(ckpt["model"], strict=False)
         optimizer.load_state_dict(ckpt["optimizer"])
         scheduler.load_state_dict(ckpt["scheduler"])
         start_epoch  = ckpt["epoch"] + 1
         best_val_acc = ckpt["best_val_acc"]
         print(f"Resumed from epoch {ckpt['epoch']} (best val acc: {best_val_acc:.1f}%)\n")
 
-    train_loader, val_loader = _make_loaders_custom(data_root)
+    train_loader, val_loader = make_loaders(data_root)
 
     print(f"  {'Ep':>3}  {'TrLoss':>7}  {'TrAcc':>6}  {'VaLoss':>7}  {'VaAcc':>6}  {'Recall':>7}  {'FAR':>6}  {'Time':>6}")
     print(f"  {'─'*72}")
@@ -267,7 +241,7 @@ def train_student(data_root: str, num_epochs: int, resume: bool = False):
 
         pbar = tqdm(train_loader, desc=f"Epoch {epoch:>3}", unit="batch",
                     leave=False, disable=not sys.stdout.isatty())
-        for step, (imgs, labels) in enumerate(pbar):
+        for step, (imgs, labels, _) in enumerate(pbar):
             imgs, labels = imgs.to(DEVICE), labels.to(DEVICE)
 
             with torch.no_grad():
@@ -279,7 +253,7 @@ def train_student(data_root: str, num_epochs: int, resume: bool = False):
 
             last_batch = (step + 1) == len(train_loader)
             if (step + 1) % ACCUM_STEPS == 0 or last_batch:
-                torch.nn.utils.clip_grad_norm_(student.parameters(), GRAD_CLIP)
+                torch.nn.utils.clip_grad_norm_(student.parameters(), grad_clip)
                 optimizer.step()
                 with torch.no_grad():
                     for m in student.modules():
@@ -320,7 +294,7 @@ def train_student(data_root: str, num_epochs: int, resume: bool = False):
                 "optimizer":    optimizer.state_dict(),
                 "scheduler":    scheduler.state_dict(),
                 "best_val_acc": best_val_acc,
-            }, STUDENT_CKPT)
+            }, student_ckpt)
         else:
             no_improve += 1
             if no_improve >= EARLY_STOP_PAT:
@@ -328,9 +302,9 @@ def train_student(data_root: str, num_epochs: int, resume: bool = False):
                 break
 
     print(f"\nDistilled student best val accuracy: {best_val_acc:.1f}%")
-    print(f"Saved → {STUDENT_CKPT}")
+    print(f"Saved → {student_ckpt}")
     print(f"\nTo evaluate: python project/software_training/evaluate_bnn.py "
-          f"--data-root project/data_combined --checkpoint {STUDENT_CKPT}")
+          f"--data-root project/data_20k --checkpoint {student_ckpt}")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -341,18 +315,42 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("phase", choices=["teacher", "student"],
-                        help="'teacher' to fine-tune ResNet-18; 'student' to distill BNNClassifier")
+                        help="'teacher' to fine-tune ResNet-50; 'student' to distill BNNClassifier")
     parser.add_argument("--data-root", default="project/data_20k", metavar="DIR")
     parser.add_argument("--epochs",    type=int, default=None,
-                        help="Training epochs (default: 20 for teacher, 50 for student)")
+                        help="Training epochs (default: 30 for teacher, 50 for student)")
     parser.add_argument("--resume",    action="store_true",
                         help="Resume student from existing checkpoint (student phase only)")
+    parser.add_argument("--teacher-checkpoint", default=None, metavar="PATH",
+                        help="Teacher checkpoint path (default: bnn_teacher.pth)")
+    parser.add_argument("--student-checkpoint", default=None, metavar="PATH",
+                        help="Student checkpoint path (default: bnn_distilled.pth)")
+    parser.add_argument("--blank-weight", type=float, default=BLANK_WEIGHT,
+                        help=f"CrossEntropy weight for blank class (default: {BLANK_WEIGHT})")
+    parser.add_argument("--lr", type=float, default=LR,
+                        help=f"Student learning rate (default: {LR})")
+    parser.add_argument("--weight-decay", type=float, default=0.00815,
+                        help="Student AdamW weight decay (default: 0.00815)")
+    parser.add_argument("--grad-clip", type=float, default=GRAD_CLIP,
+                        help=f"Student gradient clip norm (default: {GRAD_CLIP})")
     args = parser.parse_args()
 
+    _script_dir = Path(__file__).parent.parent
+    teacher_ckpt = Path(args.teacher_checkpoint) if args.teacher_checkpoint else TEACHER_CKPT
+    student_ckpt = Path(args.student_checkpoint) if args.student_checkpoint else STUDENT_CKPT
+    if not teacher_ckpt.is_absolute():
+        teacher_ckpt = _script_dir / teacher_ckpt
+    if not student_ckpt.is_absolute():
+        student_ckpt = _script_dir / student_ckpt
+
     if args.phase == "teacher":
-        train_teacher(args.data_root, args.epochs or 30)
+        train_teacher(args.data_root, args.epochs or 30,
+                      teacher_ckpt=teacher_ckpt, blank_weight=args.blank_weight)
     else:
-        train_student(args.data_root, args.epochs or 50, resume=args.resume)
+        train_student(args.data_root, args.epochs or 50, resume=args.resume,
+                      teacher_ckpt=teacher_ckpt, student_ckpt=student_ckpt,
+                      blank_weight=args.blank_weight, lr=args.lr,
+                      weight_decay=args.weight_decay, grad_clip=args.grad_clip)
 
 
 if __name__ == "__main__":

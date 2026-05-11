@@ -45,6 +45,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+import numpy as np
 import requests
 from PIL import Image
 from tqdm import tqdm
@@ -55,6 +56,91 @@ IMG_SIZE    = 224
 JPEG_QUALITY = 90
 TIMEOUT     = 20   # seconds per image request
 MAX_RETRIES = 2
+
+# Hours considered unambiguously night or day (local camera time).
+# Dawn/dusk window (4–9 am, 3–11 pm) is resolved by colourfulness instead.
+_CERTAIN_NIGHT = frozenset(range(0, 5)) | frozenset([23])   # 11 pm – 4 am
+_CERTAIN_DAY   = frozenset(range(9, 16))                     # 9 am – 3 pm
+_COLOUR_THRESHOLD = 10.0                                      # matches bnn_serengeti2
+
+
+# ── TOD helpers ───────────────────────────────────────────────────────────────
+def _timestamp_tod(date_str: str) -> tuple[str | None, bool]:
+    """
+    Returns (tod, is_certain).
+      tod        : 'day' | 'night' | None (ambiguous dawn/dusk or missing)
+      is_certain : True when timestamp alone resolves TOD
+    """
+    if not date_str:
+        return None, False
+    try:
+        hour = int(date_str.split()[1].split(":")[0])
+    except (IndexError, ValueError):
+        return None, False
+    if hour in _CERTAIN_NIGHT:
+        return "night", True
+    if hour in _CERTAIN_DAY:
+        return "day", True
+    return None, False
+
+
+def _colourfulness(img: Image.Image) -> float:
+    """Hasler & Süsstrunk (2003) colourfulness metric on a PIL image."""
+    arr = np.asarray(img, dtype=float)
+    rg  = arr[:, :, 0] - arr[:, :, 1]
+    yb  = 0.5 * (arr[:, :, 0] + arr[:, :, 1]) - arr[:, :, 2]
+    return float(np.sqrt(rg.std() ** 2 + yb.std() ** 2)
+                 + 0.3 * np.sqrt(rg.mean() ** 2 + yb.mean() ** 2))
+
+
+def _filter_pool_by_tod(pool: list[dict], tod: str) -> tuple[list[dict], set]:
+    """
+    Pre-filter pool: exclude certain wrong-TOD images by timestamp.
+    Ambiguous (dawn/dusk) images are included and flagged for post-download
+    colourfulness check — mismatches are moved to ~/.Trash.
+    Returns (filtered_pool, ambiguous_image_ids).
+    """
+    filtered, ambiguous_ids, skipped = [], set(), 0
+    for img in pool:
+        ts_tod, certain = _timestamp_tod(img.get("date_captured", ""))
+        if certain:
+            if ts_tod == tod:
+                filtered.append(img)
+            else:
+                skipped += 1
+        else:
+            filtered.append(img)
+            ambiguous_ids.add(img["id"])
+    print(f"  TOD pre-filter ({tod}): {len(filtered):,} kept, "
+          f"{len(ambiguous_ids):,} ambiguous (colourfulness check after download), "
+          f"{skipped:,} skipped")
+    return filtered, ambiguous_ids
+
+
+def _trash_wrong_tod(dest_dir: Path, ambiguous_ids: set, img_id_by_fname: dict,
+                     tod: str) -> int:
+    """
+    After download: check colourfulness on ambiguous images, move wrong-TOD
+    ones to ~/.Trash. Returns count trashed.
+    """
+    trash = Path.home() / ".Trash"
+    trashed = 0
+    want_night = (tod == "night")
+    for fname, img_id in img_id_by_fname.items():
+        if img_id not in ambiguous_ids:
+            continue
+        path = dest_dir / fname
+        if not path.exists():
+            continue
+        try:
+            score = _colourfulness(Image.open(path).convert("RGB"))
+            is_night = score < _COLOUR_THRESHOLD
+            if is_night != want_night:
+                path.rename(trash / fname)
+                trashed += 1
+        except Exception:
+            pass
+    return trashed
 
 
 # ── JSON loading ──────────────────────────────────────────────────────────────
@@ -198,8 +284,9 @@ def _download_pool(
     n: int,
     workers: int,
     seed: int,
-) -> int:
-    """Download n images from pool into dest_dir. Returns count of failures."""
+) -> tuple[int, dict]:
+    """Download n images from pool into dest_dir.
+    Returns (failure_count, {filename: image_id})."""
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     random.seed(seed)
@@ -207,16 +294,18 @@ def _download_pool(
     if len(sample) < n:
         print(f"  WARNING: only {len(sample):,} {label} images available (wanted {n:,})")
 
-    failures, downloaded = [], 0
+    failures = []
+    fname_to_id = {}
     futures = {}
 
     with ThreadPoolExecutor(max_workers=workers) as ex, tqdm(
         total=len(sample), desc=f"  {label}", unit="img"
     ) as bar:
         for i, img in enumerate(sample):
-            # Stable filename: zero-padded index + .jpg
-            fname = dest_dir / f"{label}_{i:05d}.jpg"
-            fut   = ex.submit(_download_one, img, fname)
+            fname = f"{label}_{i:05d}.jpg"
+            dest  = dest_dir / fname
+            fname_to_id[fname] = img["id"]
+            fut = ex.submit(_download_one, img, dest)
             futures[fut] = fname
 
         for fut in as_completed(futures):
@@ -224,15 +313,13 @@ def _download_pool(
             err = fut.result()
             if err:
                 failures.append(err)
-            else:
-                downloaded += 1
 
     if failures:
         log_path = dest_dir.parent / f"{label}_failures.txt"
         log_path.write_text("\n".join(failures))
         print(f"  {len(failures)} failures logged → {log_path}")
 
-    return len(failures)
+    return len(failures), fname_to_id
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -272,6 +359,11 @@ Where to find the JSON URL:
     parser.add_argument("--image-base-url", default=CALTECH_IMAGE_BASE, metavar="URL",
                         help="Base URL prepended to file_name when images lack a url "
                              "field (default: Caltech GCS prefix)")
+    parser.add_argument("--tod", default=None, choices=["day", "night"],
+                        help="Filter images by time of day. Certain hours resolved by "
+                             "timestamp (night: 11 pm–4 am, day: 9 am–3 pm); dawn/dusk "
+                             "images are downloaded then colourfulness-checked — mismatches "
+                             "moved to ~/.Trash. Omit to download all times.")
 
     args = parser.parse_args()
 
@@ -279,26 +371,46 @@ Where to find the JSON URL:
     meta = _load_json(args.json_url, args.json_file)
     blank_pool, animal_pool = _split_image_pools(meta, args.image_base_url)
 
+    # ── TOD filtering ───────────────────────────────────────────────────────
+    blank_ambiguous = animal_ambiguous = set()
+    if args.tod:
+        print(f"\nTOD filter: {args.tod}")
+        blank_pool,  blank_ambiguous  = _filter_pool_by_tod(blank_pool,  args.tod)
+        animal_pool, animal_ambiguous = _filter_pool_by_tod(animal_pool, args.tod)
+
     out = Path(args.out_dir)
     blank_dir    = out / "train" / "blank"
     nonblank_dir = out / "train" / "non_blank"
 
     print(f"\nDownloading {args.n:,} blank images  → {blank_dir}")
-    print(f"Downloading {args.n:,} animal images → {nonblank_dir}")
+    if not args.tod:
+        print(f"Downloading {args.n:,} animal images → {nonblank_dir}")
     print(f"Workers: {args.workers}  |  Seed: {args.seed}\n")
 
     # ── Download ────────────────────────────────────────────────────────────
-    blank_fails  = _download_pool(blank_pool,  blank_dir,    "blank",     args.n, args.workers, args.seed)
-    animal_fails = _download_pool(animal_pool, nonblank_dir, "non_blank", args.n, args.workers, args.seed + 1)
+    blank_fails,  blank_id_map  = _download_pool(blank_pool,  blank_dir,    "blank",
+                                                  args.n, args.workers, args.seed)
+    if not args.tod:
+        animal_fails, animal_id_map = _download_pool(animal_pool, nonblank_dir, "non_blank",
+                                                      args.n, args.workers, args.seed + 1)
+    else:
+        animal_fails = animal_id_map = None
+
+    # ── Trash wrong-TOD ambiguous images ────────────────────────────────────
+    if args.tod and blank_ambiguous:
+        print(f"\nChecking colourfulness on {len(blank_ambiguous):,} ambiguous blank images …")
+        trashed = _trash_wrong_tod(blank_dir, blank_ambiguous, blank_id_map, args.tod)
+        print(f"  Moved {trashed:,} wrong-TOD images to ~/.Trash")
 
     # ── Summary ─────────────────────────────────────────────────────────────
     blank_got  = len(list(blank_dir.glob("*.jpg")))
-    animal_got = len(list(nonblank_dir.glob("*.jpg")))
+    animal_got = len(list(nonblank_dir.glob("*.jpg"))) if nonblank_dir.exists() else 0
 
     print(f"\n{'─'*50}")
     print(f"Done.")
     print(f"  blank/     : {blank_got:,} images  ({blank_fails} failures)")
-    print(f"  non_blank/ : {animal_got:,} images  ({animal_fails} failures)")
+    if not args.tod:
+        print(f"  non_blank/ : {animal_got:,} images  ({animal_fails} failures)")
     print(f"\nTo train on this dataset, update DATA_ROOT in bnn_serengeti2.py:")
     print(f"  DATA_ROOT = '{out.resolve()}'")
 

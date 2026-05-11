@@ -33,7 +33,7 @@ from gradcam import run as gradcam_run, rebuild_gallery
 def _load_model(ckpt_path: str) -> torch.nn.Module:
     m = BNNClassifier()
     ckpt = torch.load(ckpt_path, map_location=DEVICE, weights_only=True)
-    m.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+    m.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt, strict=False)
     return m.to(DEVICE).eval()
 
 

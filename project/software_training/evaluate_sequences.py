@@ -36,7 +36,7 @@ from bnn_serengeti2 import BNNClassifier, _transform, DEVICE, _NONBLANK_IDX
 def _load_model(ckpt_path: str) -> torch.nn.Module:
     model = BNNClassifier()
     ckpt  = torch.load(ckpt_path, map_location=DEVICE, weights_only=True)
-    model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt)
+    model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt, strict=False)
     model.to(DEVICE).eval()
     return model
 
