@@ -1,0 +1,13 @@
+=== crossbar_mac testbench ===
+Weights: [[1,-1,1,-1],[1,1,-1,-1],[-1,1,1,-1],[-1,-1,-1,1]]
+Input:   [10, 20, 30, 40]
+Expected: out[0]=-40  out[1]=0  out[2]=-20  out[3]=-20
+
+--- Simulation Results ---
+  out[0] = -40   PASS (expected -40)
+  out[1] = 0   PASS (expected 0)
+  out[2] = -20   PASS (expected -20)
+  out[3] = -20   PASS (expected -20)
+
+=== Simulation complete ===
+crossbar_tb.sv:87: $finish called at 17000 (1ps)
