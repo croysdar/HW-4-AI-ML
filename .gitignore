@@ -62,3 +62,5 @@ codefest/cf04/cocotb_mac/results.xml
 codefest/cf04/cocotb_mac/sim_build/cocotb_iverilog_dump.v
 codefest/cf04/cocotb_mac/__pycache__/
 codefest/cf04/cocotb_mac/.venv/
+
+.venv-openlane/*
