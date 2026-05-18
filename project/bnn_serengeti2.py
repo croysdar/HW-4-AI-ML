@@ -437,7 +437,9 @@ def train(num_epochs: int = EPOCHS, data_root: str = DATA_ROOT,
     if warm_start and os.path.exists(warm_start):
         ckpt = torch.load(warm_start, map_location=DEVICE, weights_only=False)
         model.load_state_dict(ckpt["model"] if "model" in ckpt else ckpt, strict=False)
-        if isinstance(ckpt, dict) and "best_val_acc" in ckpt:
+        if args_best_acc > 0:
+            best_val_acc = args_best_acc
+        elif isinstance(ckpt, dict) and "best_val_acc" in ckpt:
             best_val_acc = ckpt["best_val_acc"]
         print(f"Warm-start weights loaded from {warm_start} "
               f"(must beat {best_val_acc:.1f}% to save)")
