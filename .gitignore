@@ -63,4 +63,20 @@ codefest/cf04/cocotb_mac/sim_build/cocotb_iverilog_dump.v
 codefest/cf04/cocotb_mac/__pycache__/
 codefest/cf04/cocotb_mac/.venv/
 
-.venv-openlane/*
+# OpenLane Python venv
+.venv-openlane/
+
+# OpenLane run artifacts (large, fully reproducible)
+codefest/cf07/runs/
+
+# Yosys ABC temporary directories (left by -nocleanup)
+codefest/cf07/_tmp_yosys-abc-*/
+
+# CF07 synthesis intermediates — keep yosys_run.log, stat_report.txt, metrics.csv, netlist.v
+codefest/cf07/synth/compute_core_netlist.json
+codefest/cf07/synth/sta_run.log
+codefest/cf07/synth/sta_run2.log
+codefest/cf07/synth/final_run.log
+codefest/cf07/synth/yosys_synthesis.log
+codefest/cf07/synth/timeest_report.txt
+codefest/cf07/synth/sta_report.txt

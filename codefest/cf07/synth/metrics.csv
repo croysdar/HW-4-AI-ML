@@ -1,0 +1,2 @@
+design_name,clock_period_ns,area_um2,sequential_area_um2,combinational_area_um2,cell_count,tool,pdk,corner,critical_path_ps_minload,worst_slack_ps_minload,num_flops,synthesis_date
+compute_core,3.33,13347.8,620.6,12727.2,1273,Yosys 0.64 + ABC,sky130A,sky130_fd_sc_hd__tt_025C_1v80,4057,-857,31,2026-05-17

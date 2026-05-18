@@ -1,0 +1,13 @@
+{
+    "DESIGN_NAME": "compute_core",
+    "VERILOG_FILES": ["dir::hdl/synth_top.sv"],
+    "CLOCK_PORT": "clk",
+    "CLOCK_PERIOD": 3.33,
+    "PDK": "sky130A",
+    "STD_CELL_LIBRARY": "sky130_fd_sc_hd",
+    "QUIT_ON_LINT_ERRORS": false,
+    "SYNTH_STRATEGY": "AREA 0",
+    "FP_SIZING": "relative",
+    "FP_CORE_UTIL": 40,
+    "PL_TARGET_DENSITY_PCT": 40
+}
