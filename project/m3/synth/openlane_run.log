@@ -1,0 +1,51 @@
+OpenLane 2.3.10 — Failure Log
+Tool:   OpenLane 2.3.10 (Python venv at /private/tmp/ol_venv)
+Yosys:  0.64 (initial run), 0.65 (retry after brew upgrade yosys — same result)
+Date:   2026-05-22
+
+ROOT CAUSE
+OpenLane 2.3.10 step 5/78 (Yosys.JsonHeader) calls:
+  yosys -y /path/to/json_header.py -- --config-in ... --extra-in ... --output ...
+The -y flag passes a Python script to Yosys's embedded pyosys interpreter.
+This requires Yosys compiled with ENABLE_PYOSYS=1.
+Homebrew Yosys (0.64 and 0.65) is built without pyosys support — the flag does
+not exist in the binary.
+
+ATTEMPTS
+  Run 1 — 2026-05-22, Yosys 0.64:
+    OpenLane 2.3.10 installed in Python 3.12 venv (/private/tmp/ol_venv)
+    Ran: python3 -m openlane config.json (from project/m3/synth/)
+    Failed at step 05-yosys-jsonheader with:
+      Error parsing options: Option 'y' does not exist
+
+  Run 2 — 2026-05-22, Yosys 0.65 (brew upgrade yosys):
+    Same error: Option 'y' does not exist
+    Upgrading 0.64 → 0.65 did not help; Homebrew builds remain pyosys-free.
+
+RESOLUTION
+  Option B chosen: Docker-based OpenLane (ghcr.io/efabless/openlane2:2.3.10)
+  Contains Yosys 0.46 compiled with pyosys support — -y flag works correctly.
+  See RUN_2026-05-22_01-54-18 for successful 2-stage P&R run (DRC clean, LVS clean, GDS produced).
+  See RUN_2026-05-23_03-54-34 for successful 3-stage P&R run (DRC clean, LVS clean, GDS produced;
+    timing improved: WNS −2.44 ns vs. −5.70 ns for 2-stage at nom_tt).
+  See power_report.txt, timing_report.txt, area_report.txt for post-routing results.
+  See openlane_3stage_run.log for the raw Docker stdout from the 3-stage run.
+
+FLOW PROGRESSION (prior to failure)
+Starting…
+Running 'Verilator.Lint' at 'synth/runs/RUN_2026-05-22_18-18-45/01-verilator-lint'…
+Logging subprocess to [repr.filename]'synth/runs/RUN_2026-05-22_18-18-45/01-verilator-lint/verilator-lint.log'[/repr.filename]…
+Running 'Checker.LintTimingConstructs' at 'synth/runs/RUN_2026-05-22_18-18-45/02-checker-linttimingconstructs'…
+Check for Lint Timing Errors clear.
+Running 'Checker.LintErrors' at 'synth/runs/RUN_2026-05-22_18-18-45/03-checker-linterrors'…
+Check for Lint errors clear.
+Running 'Checker.LintWarnings' at 'synth/runs/RUN_2026-05-22_18-18-45/04-checker-lintwarnings'…
+441 Lint warnings found.
+Running 'Yosys.JsonHeader' at 'synth/runs/RUN_2026-05-22_18-18-45/05-yosys-jsonheader'…
+Logging subprocess to [repr.filename]'synth/runs/RUN_2026-05-22_18-18-45/05-yosys-jsonheader/yosys-jsonheader.log'[/repr.filename]…
+Subprocess had a non-zero exit.
+Last 2 line(s):
+Error parsing options: Option 'y' does not exist
+Run 'yosys --help' for help.
+
+Full log file: 'synth/runs/RUN_2026-05-22_18-18-45/05-yosys-jsonheader/yosys-jsonheader.log'

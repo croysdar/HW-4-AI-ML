@@ -58,7 +58,12 @@ module tb_compute_core;
 
     // ── Tasks ─────────────────────────────────────────────────────────────────
 
-    // Apply one vector and check result
+    // Apply one vector and check result.
+    // compute_core is now 2-cycle pipelined: s_valid is held high for exactly
+    // 1 cycle (the handshake beat), then dropped so the pipeline drains cleanly.
+    // Cycle 1: xnor_bits captured into xnor_reg.
+    // Cycle 2: accumulator updated from xnor_reg.
+    // We sample after cycle 2.
     task automatic apply_and_check(
         input logic [VECTOR_WIDTH-1:0] act,
         input logic [VECTOR_WIDTH-1:0] wt
@@ -72,13 +77,15 @@ module tb_compute_core;
         s_valid   = 1'b1;
 
         // Independent reference: $countones on the XNOR of act and weight.
-        // This path is entirely separate from the DUT's for-loop popcount.
         xnor_ref = ~(act ^ wt);
         pop_ref  = $countones(xnor_ref);
         dot_ref  = (pop_ref * 2) - VECTOR_WIDTH;
         expected_accum = expected_accum + dot_ref;
 
-        @(posedge clk);  // DUT samples on this edge (s_valid && s_ready)
+        @(posedge clk);  // cycle 1: handshake beat — xnor_bits captured
+        #1;              // push past active region before deasserting
+        s_valid = 1'b0;  // deassert so no second beat enters the pipeline
+        @(posedge clk);  // cycle 2: accumulator updated from xnor_reg
         #1;              // small propagation delay before sampling output
 
         if (accum_out !== expected_accum) begin
@@ -88,7 +95,9 @@ module tb_compute_core;
         end
     endtask
 
-    // Hold s_valid low for N cycles and confirm accum_out does not change
+    // Hold s_valid low for N cycles and confirm accum_out does not change.
+    // Called after apply_and_check has already waited 2 cycles, so the pipeline
+    // is fully drained — no in-flight beat can update the accumulator.
     task automatic hold_check(input int n_cycles);
         logic signed [31:0] snap;
         s_valid = 1'b0;
@@ -158,7 +167,9 @@ module tb_compute_core;
 
         accum_clear    = 1'b1;
         expected_accum = 32'sd0;
-        @(posedge clk); #1;
+        @(posedge clk);  // cycle 1: accum_clear_r captures the clear
+        @(posedge clk);  // cycle 2: accumulator zeroed by accum_clear_r
+        #1;
         accum_clear = 1'b0;
 
         if (accum_out !== 32'sd0) begin

@@ -1,0 +1,66 @@
+[*]
+[*] GTKWave save file — BNN co-simulation end-to-end waveform
+[*] Zoomed to Phase 1 conv4 tile 1:
+[*]   Region 1: host write (s_axis_tvalid/tready/tdata)
+[*]   Region 2: internal compute (core_valid, accum_out)
+[*]   Region 3: host read (m_axis_tvalid/tready/tdata)
+[*]
+[dumpfile] "project/m3/sim/cosim_run.vcd"
+[savefile] "project/m3/sim/cosim_view.gtkw"
+[timestart] 10100000
+[size] 1600 900
+[pos] 0 0
+*1.500000 10112321 10168982
+[treeopen] tb_top
+[treeopen] tb_top.dut
+[signals_width] 200
+[sst_width] 250
+[波形]
+@28
+-Region 1: Host Write (AXI4-Stream Slave)
+@28
+tb_top.s_axis_tvalid
+@28
+tb_top.s_axis_tready
+@22
+tb_top.s_axis_tdata[255:0]
+@28
+tb_top.s_axis_tlast
+@28
+-
+@28
+-Region 2: Internal Compute
+@28
+tb_top.dut.core_valid
+@28
+tb_top.dut.core_ready
+@22
+tb_top.dut.u_core.xnor_reg[7:0]
+@22
+tb_top.dut.u_core.accum_out[31:0]
+@28
+tb_top.dut.last_beat
+@28
+tb_top.dut.last_beat_r1
+@28
+tb_top.dut.last_beat_r2
+@28
+-
+@28
+-Region 3: Host Read (AXI4-Stream Master)
+@28
+tb_top.m_axis_tvalid
+@28
+tb_top.m_axis_tready
+@22
+tb_top.m_axis_tdata[31:0]
+@28
+tb_top.m_axis_tlast
+@28
+-
+@28
+-Status
+@22
+tb_top.tile_count[15:0]
+[pattern_trace] 1
+[pattern_trace] 0

@@ -15,6 +15,13 @@
 //   dot_val   = 2 * popcount − VECTOR_WIDTH       // maps [0,N] → [−N,+N]
 //   accum_out += dot_val                          // 32-bit signed accumulator
 //
+// Pipeline
+// --------
+// 3-stage pipeline (latency 3 cycles, throughput 1/clk):
+//   Stage 1: XNOR                  → xnor_reg
+//   Stage 2: per-chunk popcount    → chunk_sums_r  (8 × 32-bit popcounts)
+//   Stage 3: final sum + accumulate
+//
 // Clock / Reset
 // -------------
 // Single clock domain.  Target frequency: 300 MHz (same domain as AXI4-Stream).
@@ -68,9 +75,8 @@ module compute_core #(
     logic [VECTOR_WIDTH-1:0] xnor_bits;
     assign xnor_bits = ~(act_in ^ weight_in);
 
-    // ── Pipeline register: XNOR → Popcount stage ──────────────────────────────
-    // Splitting here halves the 14-cell combinational chain that violated 300 MHz.
-    // Latency increases from 1 cycle to 2 cycles; throughput unchanged at 1/clk.
+    // ── Pipeline register 1: XNOR → chunk popcount stage ──────────────────────
+    // Captures bit-wise XNOR result. Latency 1 cycle, throughput 1/clk.
     logic [VECTOR_WIDTH-1:0] xnor_reg;
     logic                    s_valid_r;
     logic                    accum_clear_r;
@@ -87,15 +93,54 @@ module compute_core #(
         end
     end
 
-    // ── Stage 2 (combinational): Popcount → dot_val ───────────────────────────
+    // ── Stage 2 (combinational): per-chunk popcount ───────────────────────────
+    // Split the 256-bit popcount tree into 8 parallel 32-bit popcounts.
+    // Each chunk's max value is 32 → fits in 6 bits. This bounds the per-stage
+    // adder depth: 32→6-bit popcount is ~5 levels, well under 3.33 ns even with
+    // wire load. Stage 3 then sums 8×6-bit values (~3 levels).
+    localparam int CHUNK_WIDTH = 32;
+    localparam int N_CHUNKS    = VECTOR_WIDTH / CHUNK_WIDTH;  // 8
+    localparam int CHUNK_SUM_W = $clog2(CHUNK_WIDTH + 1);     // 6
+
+    logic [N_CHUNKS-1:0][CHUNK_SUM_W-1:0] chunk_sums;
+
+    always_comb begin
+        for (int c = 0; c < N_CHUNKS; c++) begin
+            logic [CHUNK_SUM_W-1:0] s;
+            s = '0;
+            for (int i = 0; i < CHUNK_WIDTH; i++)
+                s += xnor_reg[c*CHUNK_WIDTH + i];
+            chunk_sums[c] = s;
+        end
+    end
+
+    // ── Pipeline register 2: chunk sums + control ─────────────────────────────
+    // Splits the Stage 2 adder tree from the Stage 3 final sum + accumulate.
+    // Latency now 3 cycles; throughput unchanged at 1/clk.
+    logic [N_CHUNKS-1:0][CHUNK_SUM_W-1:0] chunk_sums_r;
+    logic                                  s_valid_r2;
+    logic                                  accum_clear_r2;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            chunk_sums_r   <= '0;
+            s_valid_r2     <= 1'b0;
+            accum_clear_r2 <= 1'b0;
+        end else begin
+            chunk_sums_r   <= chunk_sums;
+            s_valid_r2     <= s_valid_r;
+            accum_clear_r2 <= accum_clear_r;
+        end
+    end
+
+    // ── Stage 3 (combinational): final sum + dot_val ──────────────────────────
     logic [$clog2(VECTOR_WIDTH+1)-1:0] popcount;
     logic signed [31:0]                dot_val;
 
-    // Synthesizable for-loop: Yosys unrolls this into a balanced adder tree.
     always_comb begin
         popcount = '0;
-        for (int i = 0; i < VECTOR_WIDTH; i++)
-            popcount += xnor_reg[i];
+        for (int c = 0; c < N_CHUNKS; c++)
+            popcount += chunk_sums_r[c];
     end
 
     // Map [0, N] → [−N, +N]:  dot = 2·popcount − VECTOR_WIDTH
@@ -103,14 +148,14 @@ module compute_core #(
     // would misinterpret popcount=256 (max for 256-wide input) as negative.
     assign dot_val = (32'(popcount) << 1) - 32'(VECTOR_WIDTH);
 
-    // ── Stage 2 (sequential): Accumulator ────────────────────────────────────
-    // Uses pipelined valid/clear so control signals stay aligned with data.
+    // ── Stage 3 (sequential): Accumulator ────────────────────────────────────
+    // Uses twice-pipelined valid/clear so control signals stay aligned with data.
     always_ff @(posedge clk) begin
         if (rst)
             accum_out <= 32'sd0;
-        else if (accum_clear_r)
+        else if (accum_clear_r2)
             accum_out <= 32'sd0;
-        else if (s_valid_r)
+        else if (s_valid_r2)
             accum_out <= accum_out + dot_val;
     end
 

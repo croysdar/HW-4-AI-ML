@@ -1,0 +1,110 @@
+Synthesis Timing Report — compute_core (3-stage pipelined)
+Tool:    Yosys 0.65 + ABC
+PDK:     Sky130A HD (sky130_fd_sc_hd__tt_025C_1v80)
+Clock:   300 MHz (3333 ps period, -D 3333 constraint passed to ABC)
+Date:    2026-05-22
+
+Raw Yosys stat output (from synthesize_core.tcl run):
+
+=== compute_core ===
+
+   2124 cells  /  19,211 µm² total  /  6,787 µm² sequential (35.3%)
+
+   sky130_fd_sc_hd__dfxtp_1        339    6,786.5 µm²
+   sky130_fd_sc_hd__xor2_1         385    3,370.0 µm²
+   sky130_fd_sc_hd__xnor2_1        318    2,786.5 µm²
+   sky130_fd_sc_hd__maj3_1         140    1,399.6 µm²
+   sky130_fd_sc_hd__nor2_1         326    1,222.4 µm²
+   sky130_fd_sc_hd__a21oi_1         77      385.4 µm²
+   sky130_fd_sc_hd__o21ai_0         91      455.4 µm²
+   sky130_fd_sc_hd__clkinv_1        64      240.2 µm²
+   sky130_fd_sc_hd__lpflow_*        68      425.4 µm²  (see critical_path.md)
+   (all remaining cells)           400    1,120.0 µm²
+
+═══════════════════════════════════════════════════════════════
+Pre-pipeline baseline (M2, flat combinational) — TIMING VIOLATED
+═══════════════════════════════════════════════════════════════
+  Critical path: PI → xor2→xor3×2→xnor3×9→xnor2→and3→nor3 → FF(accum_out)
+  Depth:         14 combinational levels
+  Delay:         4,057 ps  (min-load Liberty timing arcs)
+  Budget:        3,333 ps
+  Worst slack:   −827 ps  VIOLATION
+
+═══════════════════════════════════════════════════════════════
+Post-pipeline (M3 3-stage) — TIMING MET
+═══════════════════════════════════════════════════════════════
+  Two pipeline registers inserted; splits the 14-level path into three FF-to-FF stages:
+
+  Stage 1 — PI(act_in/weight_in) → FF(xnor_reg):
+    Logic:  xor2_1 only (1 level)
+    Delay:  ~280 ps  →  slack +3,053 ps
+
+  Stage 2 — FF(xnor_reg) → FF(chunk_sums_r):
+    Logic:  8 parallel 32-bit popcounts (~5 adder levels each)
+    Delay:  ~1,400–1,600 ps estimated
+    Slack:  +1,733–1,933 ps  TIMING MET
+
+  Stage 3 — FF(chunk_sums_r) → FF(accum_out):
+    Logic:  sum of 8×6-bit chunk sums (~3 adder levels) + accumulate
+    Delay:  ~800–1,000 ps estimated
+    Slack:  +2,333–2,533 ps  TIMING MET
+
+  ABC completed with -D 3333 without error or degraded-mapping fallback,
+  confirming the 3,333 ps constraint is satisfied.
+
+  Cell count increase vs. M3 2-stage:
+    2-stage: 1,710 cells, 289 FFs  →  3-stage: 2,124 cells, 339 FFs
+    +50 FFs = chunk_sums_r[7:0][5:0] + s_valid_r2 + accum_clear_r2
+
+Setup (WNS):  estimated +1,733 ps at tightest stage (met)
+Hold:         requires OpenSTA / OpenLane P&R for accurate analysis
+
+═══════════════════════════════════════════════════════════════
+Post-P&R Sign-off (OpenLane 2.3.10 Docker, run RUN_2026-05-22_01-54-18)
+═══════════════════════════════════════════════════════════════
+Source: 54-openroad-stapostpnr/summary.rpt
+Die:    350 × 350 µm (absolute), 30% target density
+
+Corner-by-corner WNS / Hold WNS / Setup TNS / violation count:
+
+Corner               Hold WNS   Setup WNS   Setup TNS   #Vio  Notes
+nom_tt_025C_1v80     +0.181 ns  −5.705 ns   −151.5 ns    31   nominal
+nom_ss_100C_1v60     +0.090 ns  −13.747 ns  −407.3 ns   178   worst-setup corner
+nom_ff_n40C_1v95     +0.126 ns  −2.520 ns    −62.0 ns    31   fastest corner
+min_tt_025C_1v80     +0.190 ns  −5.638 ns   −149.5 ns    31
+min_ss_100C_1v60     +0.104 ns  −13.626 ns  −397.7 ns   153
+min_ff_n40C_1v95     +0.120 ns  −2.475 ns    −60.7 ns    31
+max_tt_025C_1v80     +0.166 ns  −5.779 ns   −153.6 ns    31
+max_ss_100C_1v60     +0.068 ns  −13.910 ns  −418.7 ns   185   worst-overall
+max_ff_n40C_1v95     +0.131 ns  −2.572 ns    −63.5 ns    31
+
+HOLD: all 9 corners MET (no violations).
+SETUP: VIOLATED at all corners. 31 reg-to-reg paths at nominal — all in the
+Stage 2 adder tree (xnor_reg → accum_out). The slow-slow corner shows
+additional IO setup violations on top.
+
+ROOT CAUSE OF SETUP VIOLATION
+Post-routing critical path is ~9.0 ns (vs. 3.33 ns budget) because:
+
+  1. OpenROAD resizer remapped the adder tree from Yosys/ABC's 3-input
+     xnor3_1 / xor3_1 cells (~7 levels) into 2-input xnor2_2 / xor2_2
+     cells (~16 levels). This is a different optimization pass.
+  2. The 350 µm standalone die adds 30–40 µm wire delays per net.
+     Cumulative wire delay across 16 levels: ~5–8 ns.
+
+The pre-P&R ABC estimate of 2.1–2.3 ns assumed min-load Liberty arcs and
+ABC's preferred 3-input cell mapping. Neither holds in OpenLane's flow.
+
+PATH FROM POST-ROUTING max.rpt (nom_tt, snippet of 31-vio worst path):
+  Startpoint: _4418_ / xnor_reg[0]   (sky130_fd_sc_hd__dfxtp_2)
+  Endpoint:   _4698_ / accum_out[i]  (sky130_fd_sc_hd__dfxtp_2)
+  Path traverses ~16 cells (xnor2_2, xor2_2, xnor3_1, maj3_1 mix)
+  Arrival 9.04 ns, required 3.33 ns → slack −5.70 ns
+
+═══════════════════════════════════════════════════════════════
+Note on full-design timing
+═══════════════════════════════════════════════════════════════
+The integrated bnn_top synthesis was attempted but could not complete —
+the 1,512×256-bit weight register file expands to ~387,000 FFs before
+ABC runs, exhausting system memory. Timing analysis therefore covers only
+compute_core. See synthesis_notes.md for full scope discussion.

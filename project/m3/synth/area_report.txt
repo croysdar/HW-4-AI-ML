@@ -1,0 +1,73 @@
+Synthesis Area Report — compute_core (pipelined, 3-stage)
+Tool:    Yosys 0.65 + ABC
+PDK:     Sky130A HD (sky130_fd_sc_hd__tt_025C_1v80)
+Target:  300 MHz (3333 ps period)
+Date:    2026-05-22 (3-stage update same day)
+
+=== compute_core (3-stage pipelined) ===
+
+Total cell area:          19,210.9 µm²
+Sequential element area:   6,786.5 µm²  (35.3% of total)
+Combinational area:       12,424.4 µm²  (64.7% of total)
+Total cell count:          2,124
+
+Key cell types:
+  sky130_fd_sc_hd__dfxtp_1       339 cells    6,786.5 µm²   (35.3%)   accumulator + pipeline regs
+  sky130_fd_sc_hd__xor2_1        385 cells    3,370.0 µm²   (17.5%)   XNOR + partial sum
+  sky130_fd_sc_hd__xnor2_1       318 cells    2,786.5 µm²   (14.5%)   chunk popcount stage
+  sky130_fd_sc_hd__maj3_1        140 cells    1,399.6 µm²    (7.3%)   adder carry
+  sky130_fd_sc_hd__nor2_1        326 cells    1,222.4 µm²    (6.4%)
+  sky130_fd_sc_hd__o21ai_0        91 cells      455.4 µm²    (2.4%)
+  sky130_fd_sc_hd__a21oi_1        77 cells      385.4 µm²    (2.0%)
+  sky130_fd_sc_hd__clkinv_1       64 cells      240.2 µm²    (1.3%)
+  sky130_fd_sc_hd__lpflow_*       68 cells      425.4 µm²    (2.2%)   (anomaly — see critical_path.md)
+  (remaining cells)              276 cells    1,839.9 µm²   (9.6%)
+
+Comparison vs. M2 / M3 2-stage:
+  M2 area:           13,347.8 µm²    (1,273 cells,  31 FFs)
+  M3 2-stage area:   19,077.0 µm²    (1,710 cells, 289 FFs)
+  M3 3-stage area:   19,210.9 µm²    (2,124 cells, 339 FFs)
+  Delta vs 2-stage:    +133.9 µm²   (+0.7%) — 50 new FFs for chunk_sums_r[7:0][5:0]
+                                               + s_valid_r2 + accum_clear_r2
+                                               (50 × sky130_fd_sc_hd__dfxtp_1 @ 20.02 µm² = 1,001 µm²)
+
+Note: The full bnn_top integrated design could not be synthesised with Yosys/ABC.
+The 1,512 × 256-bit weight memory expands to ~387,000 flip-flops before ABC runs,
+exhausting available memory. See synthesis_notes.md for scope adjustment rationale.
+
+═══════════════════════════════════════════════════════════════
+Post-P&R Area Report (OpenLane 2.3.10 Docker, RUN_2026-05-22_01-54-18)
+═══════════════════════════════════════════════════════════════
+Source: runs/RUN_2026-05-22_01-54-18/53-openroad-rcx/or_metrics_out.json
+Die:    350 × 350 µm (absolute floorplan)
+Core:   330 × 330 µm
+
+Instance counts and areas (post-routing, after resizer + fill + diodes):
+
+  design__instance__count:                  5,289 (all classes incl. fill)
+  design__instance__count__class:standard:  3,747 (logic + sequential)
+  design__instance__count__class:tap:       1,537 (welltap rows)
+  design__instance__count__class:antenna:       5 (diode insertion)
+  design__instance__count__class:fill:      8,193 (decap + filler)
+  design__instance__count__macros:              0 (no hard macros)
+
+  design__instance__area__stdcell:    32,713.9 µm²  (post-resize sum)
+  design__core__area:                108,550   µm²  (330 × 330 with margin)
+  design__die__area:                 122,500   µm²  (350 × 350)
+  design__instance__utilization:          30.1 %   (target was 30%)
+
+CELL COUNT DELTA: PRE-P&R YOSYS → POST-P&R OPENROAD
+  Pre-P&R Yosys:  1,710 standard cells   ~19,005 µm²
+  Post-P&R:       3,747 standard cells   ~32,714 µm²
+  Delta:         +2,037 cells           +13,710 µm²
+
+The +2,037 cell increase comes primarily from the OpenROAD resizer (RSZ)
+inserting buffers, splitting high-fanout nets, and remapping the adder tree
+into 2-input cells (xnor2_2, xor2_2) at higher drive strengths. The post-P&R
+flow chose smaller-delay/higher-area cells to meet (or attempt to meet)
+timing — the area cost is the expected tradeoff.
+
+DRC / LVS
+  Magic DRC:    CLEAN (0 errors)
+  KLayout DRC:  CLEAN (0 errors)
+  Netgen LVS:   CLEAN (0 errors)

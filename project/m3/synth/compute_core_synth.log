@@ -1,0 +1,1729 @@
+
+ /----------------------------------------------------------------------------\
+ |  yosys -- Yosys Open SYnthesis Suite                                       |
+ |  Copyright (C) 2012 - 2026  Claire Xenia Wolf <claire@yosyshq.com>         |
+ |  Distributed under an ISC-like license, type "license" to see terms        |
+ \----------------------------------------------------------------------------/
+ Yosys 0.65 (git sha1 aec814bdf3071f7e0fd0fbe43f7f711e99d01e24, clang++ 21.0.0 -fPIC -O3)
+
+1. Executing Liberty frontend: /Users/rebeccagilbert-croysdale/.volare/volare/sky130/versions/0fe599b2afb6708d281543108caf8310912f54af/sky130A/libs.ref/sky130_fd_sc_hd/lib/sky130_fd_sc_hd__tt_025C_1v80.lib
+Imported 428 cell types from liberty file.
+
+2. Executing Verilog-2005 frontend: ../rtl/compute_core.sv
+Parsing SystemVerilog input from `../rtl/compute_core.sv' to AST representation.
+Generating RTLIL representation for module `\compute_core'.
+Successfully finished Verilog frontend.
+
+3. Executing SYNTH pass.
+
+3.1. Executing HIERARCHY pass (managing design hierarchy).
+
+3.1.1. Analyzing design hierarchy..
+Top module:  \compute_core
+
+3.1.2. Analyzing design hierarchy..
+Top module:  \compute_core
+Removed 0 unused modules.
+
+3.2. Executing PROC pass (convert processes to netlists).
+
+3.2.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Cleaned up 0 empty switches.
+
+3.2.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+Marked 2 switch rules as full_case in process $proc$../rtl/compute_core.sv:153$299 in module compute_core.
+Marked 1 switch rules as full_case in process $proc$../rtl/compute_core.sv:124$286 in module compute_core.
+Marked 1 switch rules as full_case in process $proc$../rtl/compute_core.sv:84$10 in module compute_core.
+Removed a total of 0 dead cases.
+
+3.2.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+Removed 6 redundant assignments.
+Promoted 27 assignments to connections.
+
+3.2.4. Executing PROC_INIT pass (extract init attributes).
+
+3.2.5. Executing PROC_ARST pass (detect async resets in processes).
+
+3.2.6. Executing PROC_ROM pass (convert switches to ROMs).
+Converted 0 switches.
+<suppressed ~5 debug messages>
+
+3.2.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+Creating decoders for process `\compute_core.$proc$../rtl/compute_core.sv:153$299'.
+     1/1: $0\accum_out[31:0]
+Creating decoders for process `\compute_core.$proc$../rtl/compute_core.sv:140$287'.
+Creating decoders for process `\compute_core.$proc$../rtl/compute_core.sv:124$286'.
+     1/3: $0\accum_clear_r2[0:0]
+     2/3: $0\s_valid_r2[0:0]
+     3/3: $0\chunk_sums_r[47:0]
+Creating decoders for process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+Creating decoders for process `\compute_core.$proc$../rtl/compute_core.sv:84$10'.
+     1/3: $0\accum_clear_r[0:0]
+     2/3: $0\s_valid_r[0:0]
+     3/3: $0\xnor_reg[255:0]
+
+3.2.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+No latch inferred for signal `\compute_core.\popcount' from process `\compute_core.$proc$../rtl/compute_core.sv:140$287'.
+No latch inferred for signal `\compute_core.$fordecl_block$6.c' from process `\compute_core.$proc$../rtl/compute_core.sv:140$287'.
+No latch inferred for signal `\compute_core.\chunk_sums' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.c' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[0].$unnamed_block$5.s' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[0].$unnamed_block$5.$fordecl_block$3.i' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[1].$unnamed_block$5.s' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[1].$unnamed_block$5.$fordecl_block$3.i' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[2].$unnamed_block$5.s' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[2].$unnamed_block$5.$fordecl_block$3.i' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[3].$unnamed_block$5.s' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[3].$unnamed_block$5.$fordecl_block$3.i' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[4].$unnamed_block$5.s' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[4].$unnamed_block$5.$fordecl_block$3.i' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[5].$unnamed_block$5.s' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[5].$unnamed_block$5.$fordecl_block$3.i' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[6].$unnamed_block$5.s' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[6].$unnamed_block$5.$fordecl_block$3.i' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[7].$unnamed_block$5.s' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+No latch inferred for signal `\compute_core.$fordecl_block$1.$for_loop$2[7].$unnamed_block$5.$fordecl_block$3.i' from process `\compute_core.$proc$../rtl/compute_core.sv:107$12'.
+
+3.2.9. Executing PROC_DFF pass (convert process syncs to FFs).
+Creating register for signal `\compute_core.\accum_out' using process `\compute_core.$proc$../rtl/compute_core.sv:153$299'.
+  created $dff cell `$procdff$327' with positive edge clock.
+Creating register for signal `\compute_core.\chunk_sums_r' using process `\compute_core.$proc$../rtl/compute_core.sv:124$286'.
+  created $dff cell `$procdff$328' with positive edge clock.
+Creating register for signal `\compute_core.\s_valid_r2' using process `\compute_core.$proc$../rtl/compute_core.sv:124$286'.
+  created $dff cell `$procdff$329' with positive edge clock.
+Creating register for signal `\compute_core.\accum_clear_r2' using process `\compute_core.$proc$../rtl/compute_core.sv:124$286'.
+  created $dff cell `$procdff$330' with positive edge clock.
+Creating register for signal `\compute_core.\xnor_reg' using process `\compute_core.$proc$../rtl/compute_core.sv:84$10'.
+  created $dff cell `$procdff$331' with positive edge clock.
+Creating register for signal `\compute_core.\s_valid_r' using process `\compute_core.$proc$../rtl/compute_core.sv:84$10'.
+  created $dff cell `$procdff$332' with positive edge clock.
+Creating register for signal `\compute_core.\accum_clear_r' using process `\compute_core.$proc$../rtl/compute_core.sv:84$10'.
+  created $dff cell `$procdff$333' with positive edge clock.
+
+3.2.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+
+3.2.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+Found and cleaned up 3 empty switches in `\compute_core.$proc$../rtl/compute_core.sv:153$299'.
+Removing empty process `compute_core.$proc$../rtl/compute_core.sv:153$299'.
+Removing empty process `compute_core.$proc$../rtl/compute_core.sv:140$287'.
+Found and cleaned up 1 empty switch in `\compute_core.$proc$../rtl/compute_core.sv:124$286'.
+Removing empty process `compute_core.$proc$../rtl/compute_core.sv:124$286'.
+Removing empty process `compute_core.$proc$../rtl/compute_core.sv:107$12'.
+Found and cleaned up 1 empty switch in `\compute_core.$proc$../rtl/compute_core.sv:84$10'.
+Removing empty process `compute_core.$proc$../rtl/compute_core.sv:84$10'.
+Cleaned up 5 empty switches.
+
+3.2.12. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+<suppressed ~2 debug messages>
+
+3.3. Executing CHECK pass (checking for obvious problems).
+Checking module compute_core...
+Found and reported 0 problems.
+
+3.4. Executing FLATTEN pass (flatten design).
+
+3.5. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+<suppressed ~9 debug messages>
+
+3.6. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+Removed 0 unused cells and 76 unused wires.
+<suppressed ~10 debug messages>
+
+3.7. Executing CHECK pass (checking for obvious problems).
+Checking module compute_core...
+Found and reported 0 problems.
+
+3.8. Executing OPT pass (performing simple optimizations).
+
+3.8.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+
+3.8.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 275 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.8.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \compute_core..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~16 debug messages>
+
+3.8.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \compute_core.
+Performed a total of 0 changes.
+
+3.8.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 275 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.8.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.8.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+
+3.8.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+
+3.8.9. Finished fast OPT passes. (There is nothing left to do.)
+
+3.9. Executing FSM pass (extract and optimize FSM).
+
+3.9.1. Executing FSM_DETECT pass (finding FSMs in design).
+
+3.9.2. Executing FSM_EXTRACT pass (extracting FSM from design).
+
+3.9.3. Executing FSM_OPT pass (simple optimizations of FSMs).
+
+3.9.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+
+3.9.5. Executing FSM_OPT pass (simple optimizations of FSMs).
+
+3.9.6. Executing FSM_RECODE pass (re-assigning FSM state encoding).
+
+3.9.7. Executing FSM_INFO pass (dumping all available information on FSM cells).
+
+3.9.8. Executing FSM_MAP pass (mapping FSMs to basic logic).
+
+3.10. Executing OPT pass (performing simple optimizations).
+
+3.10.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+
+3.10.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 275 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.10.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \compute_core..
+  Creating internal representation of mux trees.
+  Evaluating internal representation of mux trees.
+  Analyzing evaluation results.
+Removed 0 multiplexer ports.
+<suppressed ~16 debug messages>
+
+3.10.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \compute_core.
+Performed a total of 0 changes.
+
+3.10.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 275 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.10.6. Executing OPT_DFF pass (perform DFF optimizations).
+Adding SRST signal on $procdff$333 ($dff) from module compute_core (D = \accum_clear, Q = \accum_clear_r, rval = 1'0).
+Adding SRST signal on $procdff$327 ($dff) from module compute_core (D = $procmux$301_Y, Q = \accum_out, rval = 0).
+Adding EN signal on $auto$ff.cc:337:slice$335 ($sdff) from module compute_core (D = $add$../rtl/compute_core.sv:159$300_Y, Q = \accum_out).
+Adding SRST signal on $procdff$328 ($dff) from module compute_core (D = \chunk_sums, Q = \chunk_sums_r, rval = 48'000000000000000000000000000000000000000000000000).
+Adding SRST signal on $procdff$329 ($dff) from module compute_core (D = \s_valid_r, Q = \s_valid_r2, rval = 1'0).
+Adding SRST signal on $procdff$330 ($dff) from module compute_core (D = \accum_clear_r, Q = \accum_clear_r2, rval = 1'0).
+Adding SRST signal on $procdff$331 ($dff) from module compute_core (D = \xnor_bits, Q = \xnor_reg, rval = 256'0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000).
+Adding SRST signal on $procdff$332 ($dff) from module compute_core (D = \s_valid, Q = \s_valid_r, rval = 1'0).
+
+3.10.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+Removed 9 unused cells and 9 unused wires.
+<suppressed ~10 debug messages>
+
+3.10.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+
+3.10.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+3.10.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \compute_core..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Removed 0 multiplexer ports.
+
+3.10.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \compute_core.
+Performed a total of 0 changes.
+
+3.10.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 267 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.10.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.10.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+
+3.10.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+
+3.10.16. Finished fast OPT passes. (There is nothing left to do.)
+
+3.11. Executing WREDUCE pass (reducing word size of cells).
+Removed top 5 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$31 ($add).
+Removed top 4 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$31 ($add).
+Removed top 4 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$32 ($add).
+Removed top 3 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$32 ($add).
+Removed top 3 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$33 ($add).
+Removed top 2 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$33 ($add).
+Removed top 2 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$34 ($add).
+Removed top 1 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$34 ($add).
+Removed top 1 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$35 ($add).
+Removed top 5 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$63 ($add).
+Removed top 4 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$63 ($add).
+Removed top 4 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$64 ($add).
+Removed top 3 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$64 ($add).
+Removed top 3 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$65 ($add).
+Removed top 2 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$65 ($add).
+Removed top 2 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$66 ($add).
+Removed top 1 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$66 ($add).
+Removed top 1 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$67 ($add).
+Removed top 5 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$95 ($add).
+Removed top 4 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$95 ($add).
+Removed top 4 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$96 ($add).
+Removed top 3 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$96 ($add).
+Removed top 3 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$97 ($add).
+Removed top 2 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$97 ($add).
+Removed top 2 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$98 ($add).
+Removed top 1 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$98 ($add).
+Removed top 1 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$99 ($add).
+Removed top 5 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$127 ($add).
+Removed top 4 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$127 ($add).
+Removed top 4 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$128 ($add).
+Removed top 3 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$128 ($add).
+Removed top 3 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$129 ($add).
+Removed top 2 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$129 ($add).
+Removed top 2 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$130 ($add).
+Removed top 1 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$130 ($add).
+Removed top 1 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$131 ($add).
+Removed top 5 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$159 ($add).
+Removed top 4 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$159 ($add).
+Removed top 4 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$160 ($add).
+Removed top 3 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$160 ($add).
+Removed top 3 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$161 ($add).
+Removed top 2 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$161 ($add).
+Removed top 2 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$162 ($add).
+Removed top 1 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$162 ($add).
+Removed top 1 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$163 ($add).
+Removed top 5 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$191 ($add).
+Removed top 4 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$191 ($add).
+Removed top 4 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$192 ($add).
+Removed top 3 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$192 ($add).
+Removed top 3 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$193 ($add).
+Removed top 2 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$193 ($add).
+Removed top 2 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$194 ($add).
+Removed top 1 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$194 ($add).
+Removed top 1 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$195 ($add).
+Removed top 5 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$223 ($add).
+Removed top 4 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$223 ($add).
+Removed top 4 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$224 ($add).
+Removed top 3 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$224 ($add).
+Removed top 3 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$225 ($add).
+Removed top 2 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$225 ($add).
+Removed top 2 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$226 ($add).
+Removed top 1 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$226 ($add).
+Removed top 1 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$227 ($add).
+Removed top 5 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$255 ($add).
+Removed top 4 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$255 ($add).
+Removed top 4 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$256 ($add).
+Removed top 3 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$256 ($add).
+Removed top 3 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$257 ($add).
+Removed top 2 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$257 ($add).
+Removed top 2 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$258 ($add).
+Removed top 1 bits (of 6) from port Y of cell compute_core.$add$../rtl/compute_core.sv:112$258 ($add).
+Removed top 1 bits (of 6) from port A of cell compute_core.$add$../rtl/compute_core.sv:112$259 ($add).
+Removed top 3 bits (of 9) from port A of cell compute_core.$add$../rtl/compute_core.sv:143$290 ($add).
+Removed top 2 bits (of 9) from port Y of cell compute_core.$add$../rtl/compute_core.sv:143$290 ($add).
+Removed top 2 bits (of 9) from port A of cell compute_core.$add$../rtl/compute_core.sv:143$291 ($add).
+Removed top 1 bits (of 9) from port Y of cell compute_core.$add$../rtl/compute_core.sv:143$291 ($add).
+Removed top 1 bits (of 9) from port A of cell compute_core.$add$../rtl/compute_core.sv:143$292 ($add).
+Removed top 22 bits (of 32) from port A of cell compute_core.$sub$../rtl/compute_core.sv:149$298 ($sub).
+Removed top 23 bits (of 32) from port B of cell compute_core.$sub$../rtl/compute_core.sv:149$298 ($sub).
+Removed top 21 bits (of 32) from port Y of cell compute_core.$sub$../rtl/compute_core.sv:149$298 ($sub).
+Removed top 21 bits (of 32) from port B of cell compute_core.$add$../rtl/compute_core.sv:159$300 ($add).
+Removed top 1 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$226_Y.
+Removed top 2 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$225_Y.
+Removed top 3 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$224_Y.
+Removed top 4 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$223_Y.
+Removed top 1 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$194_Y.
+Removed top 2 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$193_Y.
+Removed top 3 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$192_Y.
+Removed top 4 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$191_Y.
+Removed top 1 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$162_Y.
+Removed top 2 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$161_Y.
+Removed top 3 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$160_Y.
+Removed top 4 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$159_Y.
+Removed top 1 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$130_Y.
+Removed top 2 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$129_Y.
+Removed top 3 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$128_Y.
+Removed top 4 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$127_Y.
+Removed top 1 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$98_Y.
+Removed top 2 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$97_Y.
+Removed top 3 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$96_Y.
+Removed top 4 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$95_Y.
+Removed top 1 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$66_Y.
+Removed top 2 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$65_Y.
+Removed top 3 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$64_Y.
+Removed top 4 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$63_Y.
+Removed top 1 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$34_Y.
+Removed top 2 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$33_Y.
+Removed top 3 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$32_Y.
+Removed top 4 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$31_Y.
+Removed top 2 bits (of 9) from wire compute_core.$add$../rtl/compute_core.sv:143$290_Y.
+Removed top 1 bits (of 9) from wire compute_core.$add$../rtl/compute_core.sv:143$291_Y.
+Removed top 1 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$258_Y.
+Removed top 2 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$257_Y.
+Removed top 3 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$256_Y.
+Removed top 4 bits (of 6) from wire compute_core.$add$../rtl/compute_core.sv:112$255_Y.
+
+3.12. Executing PEEPOPT pass (run peephole optimizers).
+
+3.13. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+Removed 0 unused cells and 34 unused wires.
+<suppressed ~1 debug messages>
+
+3.14. Executing ALUMACC pass (create $alu and $macc cells).
+Extracting $alu and $macc cells in module compute_core:
+  creating $macc model for $add$../rtl/compute_core.sv:143$296 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:143$295 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:143$294 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:143$293 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:143$292 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:143$291 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:143$290 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$285 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$284 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$283 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$282 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$281 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$280 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$279 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$278 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$277 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$276 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$275 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$274 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$273 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$272 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$271 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$270 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$269 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$268 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$267 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$266 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$265 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$264 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$263 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$262 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$261 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$260 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$259 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$258 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$257 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$256 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$255 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$253 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$252 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$251 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$250 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$249 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$248 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$247 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$246 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$245 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$244 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$243 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$242 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$241 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$240 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$239 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$238 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$237 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$236 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$235 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$234 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$233 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$232 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$231 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$230 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$229 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$228 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$227 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$226 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$225 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$224 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$223 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$221 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$220 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$219 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$218 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$217 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$216 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$215 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$214 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$213 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$212 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$211 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$210 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$209 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$208 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$207 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$206 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$205 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$204 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$203 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$202 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$201 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$200 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$199 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$198 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$197 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$196 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$195 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$194 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$193 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$192 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$191 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$189 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$188 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$187 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$186 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$185 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$184 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$183 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$182 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$181 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$180 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$179 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$178 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$177 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$176 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$175 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$174 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$173 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$172 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$171 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$170 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$169 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$168 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$167 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$166 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$165 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$164 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$163 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$162 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$161 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$160 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$159 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$157 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$156 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$155 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$154 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$153 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$152 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$151 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$150 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$149 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$148 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$147 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$146 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$145 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$144 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$143 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$142 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$141 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$140 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$139 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$138 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$137 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$136 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$135 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$134 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$133 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$132 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$131 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$130 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$129 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$128 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$127 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$125 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$124 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$123 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$122 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$121 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$120 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$119 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$118 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$117 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$116 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$115 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$114 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$113 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$112 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$111 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$110 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$109 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$108 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$107 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$106 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$105 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$104 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$103 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$102 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$101 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$100 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$99 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$98 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$97 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$96 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$95 ($add).
+  creating $macc model for $sub$../rtl/compute_core.sv:149$298 ($sub).
+  creating $macc model for $add$../rtl/compute_core.sv:112$93 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$92 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$91 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$90 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$89 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$88 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$87 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$86 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$85 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$84 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$83 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$82 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$81 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$80 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$79 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$78 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$77 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$76 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$75 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$74 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$73 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$72 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$71 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$70 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$69 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$68 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$67 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$66 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$65 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$64 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$63 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:159$300 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$61 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$60 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$59 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$58 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$57 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$56 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$55 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$54 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$53 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$52 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$51 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$50 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$49 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$48 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$47 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$46 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$45 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$44 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$43 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$42 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$41 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$40 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$39 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$38 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$37 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$36 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$35 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$34 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$33 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$32 ($add).
+  creating $macc model for $add$../rtl/compute_core.sv:112$31 ($add).
+  merging $macc model for $add$../rtl/compute_core.sv:112$31 into $add$../rtl/compute_core.sv:112$32.
+  merging $macc model for $add$../rtl/compute_core.sv:112$32 into $add$../rtl/compute_core.sv:112$33.
+  merging $macc model for $add$../rtl/compute_core.sv:112$33 into $add$../rtl/compute_core.sv:112$34.
+  merging $macc model for $add$../rtl/compute_core.sv:112$34 into $add$../rtl/compute_core.sv:112$35.
+  merging $macc model for $add$../rtl/compute_core.sv:112$35 into $add$../rtl/compute_core.sv:112$36.
+  merging $macc model for $add$../rtl/compute_core.sv:112$36 into $add$../rtl/compute_core.sv:112$37.
+  merging $macc model for $add$../rtl/compute_core.sv:112$37 into $add$../rtl/compute_core.sv:112$38.
+  merging $macc model for $add$../rtl/compute_core.sv:112$38 into $add$../rtl/compute_core.sv:112$39.
+  merging $macc model for $add$../rtl/compute_core.sv:112$39 into $add$../rtl/compute_core.sv:112$40.
+  merging $macc model for $add$../rtl/compute_core.sv:112$40 into $add$../rtl/compute_core.sv:112$41.
+  merging $macc model for $add$../rtl/compute_core.sv:112$41 into $add$../rtl/compute_core.sv:112$42.
+  merging $macc model for $add$../rtl/compute_core.sv:112$42 into $add$../rtl/compute_core.sv:112$43.
+  merging $macc model for $add$../rtl/compute_core.sv:112$43 into $add$../rtl/compute_core.sv:112$44.
+  merging $macc model for $add$../rtl/compute_core.sv:112$44 into $add$../rtl/compute_core.sv:112$45.
+  merging $macc model for $add$../rtl/compute_core.sv:112$45 into $add$../rtl/compute_core.sv:112$46.
+  merging $macc model for $add$../rtl/compute_core.sv:112$46 into $add$../rtl/compute_core.sv:112$47.
+  merging $macc model for $add$../rtl/compute_core.sv:112$47 into $add$../rtl/compute_core.sv:112$48.
+  merging $macc model for $add$../rtl/compute_core.sv:112$48 into $add$../rtl/compute_core.sv:112$49.
+  merging $macc model for $add$../rtl/compute_core.sv:112$49 into $add$../rtl/compute_core.sv:112$50.
+  merging $macc model for $add$../rtl/compute_core.sv:112$50 into $add$../rtl/compute_core.sv:112$51.
+  merging $macc model for $add$../rtl/compute_core.sv:112$51 into $add$../rtl/compute_core.sv:112$52.
+  merging $macc model for $add$../rtl/compute_core.sv:112$52 into $add$../rtl/compute_core.sv:112$53.
+  merging $macc model for $add$../rtl/compute_core.sv:112$53 into $add$../rtl/compute_core.sv:112$54.
+  merging $macc model for $add$../rtl/compute_core.sv:112$54 into $add$../rtl/compute_core.sv:112$55.
+  merging $macc model for $add$../rtl/compute_core.sv:112$55 into $add$../rtl/compute_core.sv:112$56.
+  merging $macc model for $add$../rtl/compute_core.sv:112$56 into $add$../rtl/compute_core.sv:112$57.
+  merging $macc model for $add$../rtl/compute_core.sv:112$57 into $add$../rtl/compute_core.sv:112$58.
+  merging $macc model for $add$../rtl/compute_core.sv:112$58 into $add$../rtl/compute_core.sv:112$59.
+  merging $macc model for $add$../rtl/compute_core.sv:112$59 into $add$../rtl/compute_core.sv:112$60.
+  merging $macc model for $add$../rtl/compute_core.sv:112$60 into $add$../rtl/compute_core.sv:112$61.
+  merging $macc model for $add$../rtl/compute_core.sv:112$63 into $add$../rtl/compute_core.sv:112$64.
+  merging $macc model for $add$../rtl/compute_core.sv:112$64 into $add$../rtl/compute_core.sv:112$65.
+  merging $macc model for $add$../rtl/compute_core.sv:112$65 into $add$../rtl/compute_core.sv:112$66.
+  merging $macc model for $add$../rtl/compute_core.sv:112$66 into $add$../rtl/compute_core.sv:112$67.
+  merging $macc model for $add$../rtl/compute_core.sv:112$67 into $add$../rtl/compute_core.sv:112$68.
+  merging $macc model for $add$../rtl/compute_core.sv:112$68 into $add$../rtl/compute_core.sv:112$69.
+  merging $macc model for $add$../rtl/compute_core.sv:112$69 into $add$../rtl/compute_core.sv:112$70.
+  merging $macc model for $add$../rtl/compute_core.sv:112$70 into $add$../rtl/compute_core.sv:112$71.
+  merging $macc model for $add$../rtl/compute_core.sv:112$71 into $add$../rtl/compute_core.sv:112$72.
+  merging $macc model for $add$../rtl/compute_core.sv:112$72 into $add$../rtl/compute_core.sv:112$73.
+  merging $macc model for $add$../rtl/compute_core.sv:112$73 into $add$../rtl/compute_core.sv:112$74.
+  merging $macc model for $add$../rtl/compute_core.sv:112$74 into $add$../rtl/compute_core.sv:112$75.
+  merging $macc model for $add$../rtl/compute_core.sv:112$75 into $add$../rtl/compute_core.sv:112$76.
+  merging $macc model for $add$../rtl/compute_core.sv:112$76 into $add$../rtl/compute_core.sv:112$77.
+  merging $macc model for $add$../rtl/compute_core.sv:112$77 into $add$../rtl/compute_core.sv:112$78.
+  merging $macc model for $add$../rtl/compute_core.sv:112$78 into $add$../rtl/compute_core.sv:112$79.
+  merging $macc model for $add$../rtl/compute_core.sv:112$79 into $add$../rtl/compute_core.sv:112$80.
+  merging $macc model for $add$../rtl/compute_core.sv:112$80 into $add$../rtl/compute_core.sv:112$81.
+  merging $macc model for $add$../rtl/compute_core.sv:112$81 into $add$../rtl/compute_core.sv:112$82.
+  merging $macc model for $add$../rtl/compute_core.sv:112$82 into $add$../rtl/compute_core.sv:112$83.
+  merging $macc model for $add$../rtl/compute_core.sv:112$83 into $add$../rtl/compute_core.sv:112$84.
+  merging $macc model for $add$../rtl/compute_core.sv:112$84 into $add$../rtl/compute_core.sv:112$85.
+  merging $macc model for $add$../rtl/compute_core.sv:112$85 into $add$../rtl/compute_core.sv:112$86.
+  merging $macc model for $add$../rtl/compute_core.sv:112$86 into $add$../rtl/compute_core.sv:112$87.
+  merging $macc model for $add$../rtl/compute_core.sv:112$87 into $add$../rtl/compute_core.sv:112$88.
+  merging $macc model for $add$../rtl/compute_core.sv:112$88 into $add$../rtl/compute_core.sv:112$89.
+  merging $macc model for $add$../rtl/compute_core.sv:112$89 into $add$../rtl/compute_core.sv:112$90.
+  merging $macc model for $add$../rtl/compute_core.sv:112$90 into $add$../rtl/compute_core.sv:112$91.
+  merging $macc model for $add$../rtl/compute_core.sv:112$91 into $add$../rtl/compute_core.sv:112$92.
+  merging $macc model for $add$../rtl/compute_core.sv:112$92 into $add$../rtl/compute_core.sv:112$93.
+  merging $macc model for $add$../rtl/compute_core.sv:112$95 into $add$../rtl/compute_core.sv:112$96.
+  merging $macc model for $add$../rtl/compute_core.sv:112$96 into $add$../rtl/compute_core.sv:112$97.
+  merging $macc model for $add$../rtl/compute_core.sv:112$97 into $add$../rtl/compute_core.sv:112$98.
+  merging $macc model for $add$../rtl/compute_core.sv:112$98 into $add$../rtl/compute_core.sv:112$99.
+  merging $macc model for $add$../rtl/compute_core.sv:112$99 into $add$../rtl/compute_core.sv:112$100.
+  merging $macc model for $add$../rtl/compute_core.sv:112$100 into $add$../rtl/compute_core.sv:112$101.
+  merging $macc model for $add$../rtl/compute_core.sv:112$101 into $add$../rtl/compute_core.sv:112$102.
+  merging $macc model for $add$../rtl/compute_core.sv:112$102 into $add$../rtl/compute_core.sv:112$103.
+  merging $macc model for $add$../rtl/compute_core.sv:112$103 into $add$../rtl/compute_core.sv:112$104.
+  merging $macc model for $add$../rtl/compute_core.sv:112$104 into $add$../rtl/compute_core.sv:112$105.
+  merging $macc model for $add$../rtl/compute_core.sv:112$105 into $add$../rtl/compute_core.sv:112$106.
+  merging $macc model for $add$../rtl/compute_core.sv:112$106 into $add$../rtl/compute_core.sv:112$107.
+  merging $macc model for $add$../rtl/compute_core.sv:112$107 into $add$../rtl/compute_core.sv:112$108.
+  merging $macc model for $add$../rtl/compute_core.sv:112$108 into $add$../rtl/compute_core.sv:112$109.
+  merging $macc model for $add$../rtl/compute_core.sv:112$109 into $add$../rtl/compute_core.sv:112$110.
+  merging $macc model for $add$../rtl/compute_core.sv:112$110 into $add$../rtl/compute_core.sv:112$111.
+  merging $macc model for $add$../rtl/compute_core.sv:112$111 into $add$../rtl/compute_core.sv:112$112.
+  merging $macc model for $add$../rtl/compute_core.sv:112$112 into $add$../rtl/compute_core.sv:112$113.
+  merging $macc model for $add$../rtl/compute_core.sv:112$113 into $add$../rtl/compute_core.sv:112$114.
+  merging $macc model for $add$../rtl/compute_core.sv:112$114 into $add$../rtl/compute_core.sv:112$115.
+  merging $macc model for $add$../rtl/compute_core.sv:112$115 into $add$../rtl/compute_core.sv:112$116.
+  merging $macc model for $add$../rtl/compute_core.sv:112$116 into $add$../rtl/compute_core.sv:112$117.
+  merging $macc model for $add$../rtl/compute_core.sv:112$117 into $add$../rtl/compute_core.sv:112$118.
+  merging $macc model for $add$../rtl/compute_core.sv:112$118 into $add$../rtl/compute_core.sv:112$119.
+  merging $macc model for $add$../rtl/compute_core.sv:112$119 into $add$../rtl/compute_core.sv:112$120.
+  merging $macc model for $add$../rtl/compute_core.sv:112$120 into $add$../rtl/compute_core.sv:112$121.
+  merging $macc model for $add$../rtl/compute_core.sv:112$121 into $add$../rtl/compute_core.sv:112$122.
+  merging $macc model for $add$../rtl/compute_core.sv:112$122 into $add$../rtl/compute_core.sv:112$123.
+  merging $macc model for $add$../rtl/compute_core.sv:112$123 into $add$../rtl/compute_core.sv:112$124.
+  merging $macc model for $add$../rtl/compute_core.sv:112$124 into $add$../rtl/compute_core.sv:112$125.
+  merging $macc model for $add$../rtl/compute_core.sv:112$127 into $add$../rtl/compute_core.sv:112$128.
+  merging $macc model for $add$../rtl/compute_core.sv:112$128 into $add$../rtl/compute_core.sv:112$129.
+  merging $macc model for $add$../rtl/compute_core.sv:112$129 into $add$../rtl/compute_core.sv:112$130.
+  merging $macc model for $add$../rtl/compute_core.sv:112$130 into $add$../rtl/compute_core.sv:112$131.
+  merging $macc model for $add$../rtl/compute_core.sv:112$131 into $add$../rtl/compute_core.sv:112$132.
+  merging $macc model for $add$../rtl/compute_core.sv:112$132 into $add$../rtl/compute_core.sv:112$133.
+  merging $macc model for $add$../rtl/compute_core.sv:112$133 into $add$../rtl/compute_core.sv:112$134.
+  merging $macc model for $add$../rtl/compute_core.sv:112$134 into $add$../rtl/compute_core.sv:112$135.
+  merging $macc model for $add$../rtl/compute_core.sv:112$135 into $add$../rtl/compute_core.sv:112$136.
+  merging $macc model for $add$../rtl/compute_core.sv:112$136 into $add$../rtl/compute_core.sv:112$137.
+  merging $macc model for $add$../rtl/compute_core.sv:112$137 into $add$../rtl/compute_core.sv:112$138.
+  merging $macc model for $add$../rtl/compute_core.sv:112$138 into $add$../rtl/compute_core.sv:112$139.
+  merging $macc model for $add$../rtl/compute_core.sv:112$139 into $add$../rtl/compute_core.sv:112$140.
+  merging $macc model for $add$../rtl/compute_core.sv:112$140 into $add$../rtl/compute_core.sv:112$141.
+  merging $macc model for $add$../rtl/compute_core.sv:112$141 into $add$../rtl/compute_core.sv:112$142.
+  merging $macc model for $add$../rtl/compute_core.sv:112$142 into $add$../rtl/compute_core.sv:112$143.
+  merging $macc model for $add$../rtl/compute_core.sv:112$143 into $add$../rtl/compute_core.sv:112$144.
+  merging $macc model for $add$../rtl/compute_core.sv:112$144 into $add$../rtl/compute_core.sv:112$145.
+  merging $macc model for $add$../rtl/compute_core.sv:112$145 into $add$../rtl/compute_core.sv:112$146.
+  merging $macc model for $add$../rtl/compute_core.sv:112$146 into $add$../rtl/compute_core.sv:112$147.
+  merging $macc model for $add$../rtl/compute_core.sv:112$147 into $add$../rtl/compute_core.sv:112$148.
+  merging $macc model for $add$../rtl/compute_core.sv:112$148 into $add$../rtl/compute_core.sv:112$149.
+  merging $macc model for $add$../rtl/compute_core.sv:112$149 into $add$../rtl/compute_core.sv:112$150.
+  merging $macc model for $add$../rtl/compute_core.sv:112$150 into $add$../rtl/compute_core.sv:112$151.
+  merging $macc model for $add$../rtl/compute_core.sv:112$151 into $add$../rtl/compute_core.sv:112$152.
+  merging $macc model for $add$../rtl/compute_core.sv:112$152 into $add$../rtl/compute_core.sv:112$153.
+  merging $macc model for $add$../rtl/compute_core.sv:112$153 into $add$../rtl/compute_core.sv:112$154.
+  merging $macc model for $add$../rtl/compute_core.sv:112$154 into $add$../rtl/compute_core.sv:112$155.
+  merging $macc model for $add$../rtl/compute_core.sv:112$155 into $add$../rtl/compute_core.sv:112$156.
+  merging $macc model for $add$../rtl/compute_core.sv:112$156 into $add$../rtl/compute_core.sv:112$157.
+  merging $macc model for $add$../rtl/compute_core.sv:112$159 into $add$../rtl/compute_core.sv:112$160.
+  merging $macc model for $add$../rtl/compute_core.sv:112$160 into $add$../rtl/compute_core.sv:112$161.
+  merging $macc model for $add$../rtl/compute_core.sv:112$161 into $add$../rtl/compute_core.sv:112$162.
+  merging $macc model for $add$../rtl/compute_core.sv:112$162 into $add$../rtl/compute_core.sv:112$163.
+  merging $macc model for $add$../rtl/compute_core.sv:112$163 into $add$../rtl/compute_core.sv:112$164.
+  merging $macc model for $add$../rtl/compute_core.sv:112$164 into $add$../rtl/compute_core.sv:112$165.
+  merging $macc model for $add$../rtl/compute_core.sv:112$165 into $add$../rtl/compute_core.sv:112$166.
+  merging $macc model for $add$../rtl/compute_core.sv:112$166 into $add$../rtl/compute_core.sv:112$167.
+  merging $macc model for $add$../rtl/compute_core.sv:112$167 into $add$../rtl/compute_core.sv:112$168.
+  merging $macc model for $add$../rtl/compute_core.sv:112$168 into $add$../rtl/compute_core.sv:112$169.
+  merging $macc model for $add$../rtl/compute_core.sv:112$169 into $add$../rtl/compute_core.sv:112$170.
+  merging $macc model for $add$../rtl/compute_core.sv:112$170 into $add$../rtl/compute_core.sv:112$171.
+  merging $macc model for $add$../rtl/compute_core.sv:112$171 into $add$../rtl/compute_core.sv:112$172.
+  merging $macc model for $add$../rtl/compute_core.sv:112$172 into $add$../rtl/compute_core.sv:112$173.
+  merging $macc model for $add$../rtl/compute_core.sv:112$173 into $add$../rtl/compute_core.sv:112$174.
+  merging $macc model for $add$../rtl/compute_core.sv:112$174 into $add$../rtl/compute_core.sv:112$175.
+  merging $macc model for $add$../rtl/compute_core.sv:112$175 into $add$../rtl/compute_core.sv:112$176.
+  merging $macc model for $add$../rtl/compute_core.sv:112$176 into $add$../rtl/compute_core.sv:112$177.
+  merging $macc model for $add$../rtl/compute_core.sv:112$177 into $add$../rtl/compute_core.sv:112$178.
+  merging $macc model for $add$../rtl/compute_core.sv:112$178 into $add$../rtl/compute_core.sv:112$179.
+  merging $macc model for $add$../rtl/compute_core.sv:112$179 into $add$../rtl/compute_core.sv:112$180.
+  merging $macc model for $add$../rtl/compute_core.sv:112$180 into $add$../rtl/compute_core.sv:112$181.
+  merging $macc model for $add$../rtl/compute_core.sv:112$181 into $add$../rtl/compute_core.sv:112$182.
+  merging $macc model for $add$../rtl/compute_core.sv:112$182 into $add$../rtl/compute_core.sv:112$183.
+  merging $macc model for $add$../rtl/compute_core.sv:112$183 into $add$../rtl/compute_core.sv:112$184.
+  merging $macc model for $add$../rtl/compute_core.sv:112$184 into $add$../rtl/compute_core.sv:112$185.
+  merging $macc model for $add$../rtl/compute_core.sv:112$185 into $add$../rtl/compute_core.sv:112$186.
+  merging $macc model for $add$../rtl/compute_core.sv:112$186 into $add$../rtl/compute_core.sv:112$187.
+  merging $macc model for $add$../rtl/compute_core.sv:112$187 into $add$../rtl/compute_core.sv:112$188.
+  merging $macc model for $add$../rtl/compute_core.sv:112$188 into $add$../rtl/compute_core.sv:112$189.
+  merging $macc model for $add$../rtl/compute_core.sv:112$191 into $add$../rtl/compute_core.sv:112$192.
+  merging $macc model for $add$../rtl/compute_core.sv:112$192 into $add$../rtl/compute_core.sv:112$193.
+  merging $macc model for $add$../rtl/compute_core.sv:112$193 into $add$../rtl/compute_core.sv:112$194.
+  merging $macc model for $add$../rtl/compute_core.sv:112$194 into $add$../rtl/compute_core.sv:112$195.
+  merging $macc model for $add$../rtl/compute_core.sv:112$195 into $add$../rtl/compute_core.sv:112$196.
+  merging $macc model for $add$../rtl/compute_core.sv:112$196 into $add$../rtl/compute_core.sv:112$197.
+  merging $macc model for $add$../rtl/compute_core.sv:112$197 into $add$../rtl/compute_core.sv:112$198.
+  merging $macc model for $add$../rtl/compute_core.sv:112$198 into $add$../rtl/compute_core.sv:112$199.
+  merging $macc model for $add$../rtl/compute_core.sv:112$199 into $add$../rtl/compute_core.sv:112$200.
+  merging $macc model for $add$../rtl/compute_core.sv:112$200 into $add$../rtl/compute_core.sv:112$201.
+  merging $macc model for $add$../rtl/compute_core.sv:112$201 into $add$../rtl/compute_core.sv:112$202.
+  merging $macc model for $add$../rtl/compute_core.sv:112$202 into $add$../rtl/compute_core.sv:112$203.
+  merging $macc model for $add$../rtl/compute_core.sv:112$203 into $add$../rtl/compute_core.sv:112$204.
+  merging $macc model for $add$../rtl/compute_core.sv:112$204 into $add$../rtl/compute_core.sv:112$205.
+  merging $macc model for $add$../rtl/compute_core.sv:112$205 into $add$../rtl/compute_core.sv:112$206.
+  merging $macc model for $add$../rtl/compute_core.sv:112$206 into $add$../rtl/compute_core.sv:112$207.
+  merging $macc model for $add$../rtl/compute_core.sv:112$207 into $add$../rtl/compute_core.sv:112$208.
+  merging $macc model for $add$../rtl/compute_core.sv:112$208 into $add$../rtl/compute_core.sv:112$209.
+  merging $macc model for $add$../rtl/compute_core.sv:112$209 into $add$../rtl/compute_core.sv:112$210.
+  merging $macc model for $add$../rtl/compute_core.sv:112$210 into $add$../rtl/compute_core.sv:112$211.
+  merging $macc model for $add$../rtl/compute_core.sv:112$211 into $add$../rtl/compute_core.sv:112$212.
+  merging $macc model for $add$../rtl/compute_core.sv:112$212 into $add$../rtl/compute_core.sv:112$213.
+  merging $macc model for $add$../rtl/compute_core.sv:112$213 into $add$../rtl/compute_core.sv:112$214.
+  merging $macc model for $add$../rtl/compute_core.sv:112$214 into $add$../rtl/compute_core.sv:112$215.
+  merging $macc model for $add$../rtl/compute_core.sv:112$215 into $add$../rtl/compute_core.sv:112$216.
+  merging $macc model for $add$../rtl/compute_core.sv:112$216 into $add$../rtl/compute_core.sv:112$217.
+  merging $macc model for $add$../rtl/compute_core.sv:112$217 into $add$../rtl/compute_core.sv:112$218.
+  merging $macc model for $add$../rtl/compute_core.sv:112$218 into $add$../rtl/compute_core.sv:112$219.
+  merging $macc model for $add$../rtl/compute_core.sv:112$219 into $add$../rtl/compute_core.sv:112$220.
+  merging $macc model for $add$../rtl/compute_core.sv:112$220 into $add$../rtl/compute_core.sv:112$221.
+  merging $macc model for $add$../rtl/compute_core.sv:112$223 into $add$../rtl/compute_core.sv:112$224.
+  merging $macc model for $add$../rtl/compute_core.sv:112$224 into $add$../rtl/compute_core.sv:112$225.
+  merging $macc model for $add$../rtl/compute_core.sv:112$225 into $add$../rtl/compute_core.sv:112$226.
+  merging $macc model for $add$../rtl/compute_core.sv:112$226 into $add$../rtl/compute_core.sv:112$227.
+  merging $macc model for $add$../rtl/compute_core.sv:112$227 into $add$../rtl/compute_core.sv:112$228.
+  merging $macc model for $add$../rtl/compute_core.sv:112$228 into $add$../rtl/compute_core.sv:112$229.
+  merging $macc model for $add$../rtl/compute_core.sv:112$229 into $add$../rtl/compute_core.sv:112$230.
+  merging $macc model for $add$../rtl/compute_core.sv:112$230 into $add$../rtl/compute_core.sv:112$231.
+  merging $macc model for $add$../rtl/compute_core.sv:112$231 into $add$../rtl/compute_core.sv:112$232.
+  merging $macc model for $add$../rtl/compute_core.sv:112$232 into $add$../rtl/compute_core.sv:112$233.
+  merging $macc model for $add$../rtl/compute_core.sv:112$233 into $add$../rtl/compute_core.sv:112$234.
+  merging $macc model for $add$../rtl/compute_core.sv:112$234 into $add$../rtl/compute_core.sv:112$235.
+  merging $macc model for $add$../rtl/compute_core.sv:112$235 into $add$../rtl/compute_core.sv:112$236.
+  merging $macc model for $add$../rtl/compute_core.sv:112$236 into $add$../rtl/compute_core.sv:112$237.
+  merging $macc model for $add$../rtl/compute_core.sv:112$237 into $add$../rtl/compute_core.sv:112$238.
+  merging $macc model for $add$../rtl/compute_core.sv:112$238 into $add$../rtl/compute_core.sv:112$239.
+  merging $macc model for $add$../rtl/compute_core.sv:112$239 into $add$../rtl/compute_core.sv:112$240.
+  merging $macc model for $add$../rtl/compute_core.sv:112$240 into $add$../rtl/compute_core.sv:112$241.
+  merging $macc model for $add$../rtl/compute_core.sv:112$241 into $add$../rtl/compute_core.sv:112$242.
+  merging $macc model for $add$../rtl/compute_core.sv:112$242 into $add$../rtl/compute_core.sv:112$243.
+  merging $macc model for $add$../rtl/compute_core.sv:112$243 into $add$../rtl/compute_core.sv:112$244.
+  merging $macc model for $add$../rtl/compute_core.sv:112$244 into $add$../rtl/compute_core.sv:112$245.
+  merging $macc model for $add$../rtl/compute_core.sv:112$245 into $add$../rtl/compute_core.sv:112$246.
+  merging $macc model for $add$../rtl/compute_core.sv:112$246 into $add$../rtl/compute_core.sv:112$247.
+  merging $macc model for $add$../rtl/compute_core.sv:112$247 into $add$../rtl/compute_core.sv:112$248.
+  merging $macc model for $add$../rtl/compute_core.sv:112$248 into $add$../rtl/compute_core.sv:112$249.
+  merging $macc model for $add$../rtl/compute_core.sv:112$249 into $add$../rtl/compute_core.sv:112$250.
+  merging $macc model for $add$../rtl/compute_core.sv:112$250 into $add$../rtl/compute_core.sv:112$251.
+  merging $macc model for $add$../rtl/compute_core.sv:112$251 into $add$../rtl/compute_core.sv:112$252.
+  merging $macc model for $add$../rtl/compute_core.sv:112$252 into $add$../rtl/compute_core.sv:112$253.
+  merging $macc model for $add$../rtl/compute_core.sv:112$255 into $add$../rtl/compute_core.sv:112$256.
+  merging $macc model for $add$../rtl/compute_core.sv:112$256 into $add$../rtl/compute_core.sv:112$257.
+  merging $macc model for $add$../rtl/compute_core.sv:112$257 into $add$../rtl/compute_core.sv:112$258.
+  merging $macc model for $add$../rtl/compute_core.sv:112$258 into $add$../rtl/compute_core.sv:112$259.
+  merging $macc model for $add$../rtl/compute_core.sv:112$259 into $add$../rtl/compute_core.sv:112$260.
+  merging $macc model for $add$../rtl/compute_core.sv:112$260 into $add$../rtl/compute_core.sv:112$261.
+  merging $macc model for $add$../rtl/compute_core.sv:112$261 into $add$../rtl/compute_core.sv:112$262.
+  merging $macc model for $add$../rtl/compute_core.sv:112$262 into $add$../rtl/compute_core.sv:112$263.
+  merging $macc model for $add$../rtl/compute_core.sv:112$263 into $add$../rtl/compute_core.sv:112$264.
+  merging $macc model for $add$../rtl/compute_core.sv:112$264 into $add$../rtl/compute_core.sv:112$265.
+  merging $macc model for $add$../rtl/compute_core.sv:112$265 into $add$../rtl/compute_core.sv:112$266.
+  merging $macc model for $add$../rtl/compute_core.sv:112$266 into $add$../rtl/compute_core.sv:112$267.
+  merging $macc model for $add$../rtl/compute_core.sv:112$267 into $add$../rtl/compute_core.sv:112$268.
+  merging $macc model for $add$../rtl/compute_core.sv:112$268 into $add$../rtl/compute_core.sv:112$269.
+  merging $macc model for $add$../rtl/compute_core.sv:112$269 into $add$../rtl/compute_core.sv:112$270.
+  merging $macc model for $add$../rtl/compute_core.sv:112$270 into $add$../rtl/compute_core.sv:112$271.
+  merging $macc model for $add$../rtl/compute_core.sv:112$271 into $add$../rtl/compute_core.sv:112$272.
+  merging $macc model for $add$../rtl/compute_core.sv:112$272 into $add$../rtl/compute_core.sv:112$273.
+  merging $macc model for $add$../rtl/compute_core.sv:112$273 into $add$../rtl/compute_core.sv:112$274.
+  merging $macc model for $add$../rtl/compute_core.sv:112$274 into $add$../rtl/compute_core.sv:112$275.
+  merging $macc model for $add$../rtl/compute_core.sv:112$275 into $add$../rtl/compute_core.sv:112$276.
+  merging $macc model for $add$../rtl/compute_core.sv:112$276 into $add$../rtl/compute_core.sv:112$277.
+  merging $macc model for $add$../rtl/compute_core.sv:112$277 into $add$../rtl/compute_core.sv:112$278.
+  merging $macc model for $add$../rtl/compute_core.sv:112$278 into $add$../rtl/compute_core.sv:112$279.
+  merging $macc model for $add$../rtl/compute_core.sv:112$279 into $add$../rtl/compute_core.sv:112$280.
+  merging $macc model for $add$../rtl/compute_core.sv:112$280 into $add$../rtl/compute_core.sv:112$281.
+  merging $macc model for $add$../rtl/compute_core.sv:112$281 into $add$../rtl/compute_core.sv:112$282.
+  merging $macc model for $add$../rtl/compute_core.sv:112$282 into $add$../rtl/compute_core.sv:112$283.
+  merging $macc model for $add$../rtl/compute_core.sv:112$283 into $add$../rtl/compute_core.sv:112$284.
+  merging $macc model for $add$../rtl/compute_core.sv:112$284 into $add$../rtl/compute_core.sv:112$285.
+  merging $macc model for $add$../rtl/compute_core.sv:143$290 into $add$../rtl/compute_core.sv:143$291.
+  merging $macc model for $add$../rtl/compute_core.sv:143$291 into $add$../rtl/compute_core.sv:143$292.
+  merging $macc model for $add$../rtl/compute_core.sv:143$292 into $add$../rtl/compute_core.sv:143$293.
+  merging $macc model for $add$../rtl/compute_core.sv:143$293 into $add$../rtl/compute_core.sv:143$294.
+  merging $macc model for $add$../rtl/compute_core.sv:143$294 into $add$../rtl/compute_core.sv:143$295.
+  merging $macc model for $add$../rtl/compute_core.sv:143$295 into $add$../rtl/compute_core.sv:143$296.
+  creating $alu model for $macc $sub$../rtl/compute_core.sv:149$298.
+  creating $alu model for $macc $add$../rtl/compute_core.sv:159$300.
+  creating $macc cell for $add$../rtl/compute_core.sv:112$125: $auto$alumacc.cc:382:replace_macc$378
+  creating $macc cell for $add$../rtl/compute_core.sv:112$285: $auto$alumacc.cc:382:replace_macc$379
+  creating $macc cell for $add$../rtl/compute_core.sv:112$93: $auto$alumacc.cc:382:replace_macc$380
+  creating $macc cell for $add$../rtl/compute_core.sv:112$157: $auto$alumacc.cc:382:replace_macc$381
+  creating $macc cell for $add$../rtl/compute_core.sv:112$61: $auto$alumacc.cc:382:replace_macc$382
+  creating $macc cell for $add$../rtl/compute_core.sv:112$189: $auto$alumacc.cc:382:replace_macc$383
+  creating $macc cell for $add$../rtl/compute_core.sv:112$221: $auto$alumacc.cc:382:replace_macc$384
+  creating $macc cell for $add$../rtl/compute_core.sv:112$253: $auto$alumacc.cc:382:replace_macc$385
+  creating $macc cell for $add$../rtl/compute_core.sv:143$296: $auto$alumacc.cc:382:replace_macc$386
+  creating $alu cell for $add$../rtl/compute_core.sv:159$300: $auto$alumacc.cc:512:replace_alu$387
+  creating $alu cell for $sub$../rtl/compute_core.sv:149$298: $auto$alumacc.cc:512:replace_alu$390
+  created 2 $alu and 9 $macc cells.
+
+3.15. Executing SHARE pass (SAT-based resource sharing).
+
+3.16. Executing OPT pass (performing simple optimizations).
+
+3.16.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+
+3.16.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 267 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.16.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \compute_core..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Removed 0 multiplexer ports.
+
+3.16.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \compute_core.
+Performed a total of 0 changes.
+
+3.16.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 267 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.16.6. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.16.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+Removed 246 unused cells and 246 unused wires.
+<suppressed ~247 debug messages>
+
+3.16.8. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+
+3.16.9. Rerunning OPT passes. (Maybe there is more to do..)
+
+3.16.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \compute_core..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Removed 0 multiplexer ports.
+
+3.16.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \compute_core.
+Performed a total of 0 changes.
+
+3.16.12. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 21 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.16.13. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.16.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+
+3.16.15. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+
+3.16.16. Finished fast OPT passes. (There is nothing left to do.)
+
+3.17. Executing MEMORY pass.
+
+3.17.1. Executing OPT_MEM pass (optimize memories).
+Performed a total of 0 transformations.
+
+3.17.2. Executing OPT_MEM_PRIORITY pass (removing unnecessary memory write priority relations).
+Performed a total of 0 transformations.
+
+3.17.3. Executing OPT_MEM_FEEDBACK pass (finding memory read-to-write feedback paths).
+
+3.17.4. Executing MEMORY_BMUX2ROM pass (converting muxes to ROMs).
+
+3.17.5. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
+
+3.17.6. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+
+3.17.7. Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).
+
+3.17.8. Executing OPT_MEM_WIDEN pass (optimize memories where all ports are wide).
+Performed a total of 0 transformations.
+
+3.17.9. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+
+3.17.10. Executing MEMORY_COLLECT pass (generating $mem cells).
+
+3.18. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+
+3.19. Executing OPT pass (performing simple optimizations).
+
+3.19.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+<suppressed ~3 debug messages>
+
+3.19.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 28 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.19.3. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.19.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+Removed 7 unused cells and 8 unused wires.
+<suppressed ~8 debug messages>
+
+3.19.5. Finished fast OPT passes.
+
+3.20. Executing MEMORY_MAP pass (converting memories to logic and flip-flops).
+
+3.21. Executing OPT pass (performing simple optimizations).
+
+3.21.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+
+3.21.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 21 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.21.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \compute_core..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Removed 0 multiplexer ports.
+
+3.21.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \compute_core.
+Performed a total of 0 changes.
+
+3.21.5. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 21 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.21.6. Executing OPT_SHARE pass.
+
+3.21.7. Executing OPT_DFF pass (perform DFF optimizations).
+Adding EN signal on $auto$ff.cc:337:slice$338 ($sdffe) from module compute_core (D = \accum_out [0], Q = \accum_out [0]).
+Handling D = Q on $auto$ff.cc:337:slice$409 ($sdffe) from module compute_core (conecting SRST instead).
+Setting constant 0-bit at position 0 on $auto$ff.cc:337:slice$409 ($dffe) from module compute_core.
+
+3.21.8. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+Removed 2 unused cells and 2 unused wires.
+<suppressed ~3 debug messages>
+
+3.21.9. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+
+3.21.10. Rerunning OPT passes. (Maybe there is more to do..)
+
+3.21.11. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+Running muxtree optimizer on module \compute_core..
+  Creating internal representation of mux trees.
+  No muxes found in this module.
+Removed 0 multiplexer ports.
+
+3.21.12. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+  Optimizing cells in module \compute_core.
+Performed a total of 0 changes.
+
+3.21.13. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 21 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.21.14. Executing OPT_SHARE pass.
+
+3.21.15. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.21.16. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+
+3.21.17. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+
+3.21.18. Finished fast OPT passes. (There is nothing left to do.)
+
+3.22. Executing TECHMAP pass (map to technology primitives).
+
+3.22.1. Executing Verilog-2005 frontend: /opt/homebrew/bin/../share/yosys/techmap.v
+Parsing Verilog input from `/opt/homebrew/bin/../share/yosys/techmap.v' to AST representation.
+Generating RTLIL representation for module `\_90_simplemap_bool_ops'.
+Generating RTLIL representation for module `\_90_simplemap_reduce_ops'.
+Generating RTLIL representation for module `\_90_simplemap_logic_ops'.
+Generating RTLIL representation for module `\_90_simplemap_compare_ops'.
+Generating RTLIL representation for module `\_90_simplemap_various'.
+Generating RTLIL representation for module `\_90_simplemap_registers'.
+Generating RTLIL representation for module `\_90_shift_ops_shr_shl_sshl_sshr'.
+Generating RTLIL representation for module `\_90_shift_shiftx'.
+Generating RTLIL representation for module `\_90_fa'.
+Generating RTLIL representation for module `\_90_lcu_brent_kung'.
+Generating RTLIL representation for module `\_90_alu'.
+Generating RTLIL representation for module `\_90_macc'.
+Generating RTLIL representation for module `\_90_alumacc'.
+Generating RTLIL representation for module `$__div_mod_u'.
+Generating RTLIL representation for module `$__div_mod_trunc'.
+Generating RTLIL representation for module `\_90_div'.
+Generating RTLIL representation for module `\_90_mod'.
+Generating RTLIL representation for module `$__div_mod_floor'.
+Generating RTLIL representation for module `\_90_divfloor'.
+Generating RTLIL representation for module `\_90_modfloor'.
+Generating RTLIL representation for module `\_90_pow'.
+Generating RTLIL representation for module `\_90_demux'.
+Generating RTLIL representation for module `\_90_lut'.
+Generating RTLIL representation for module `$connect'.
+Generating RTLIL representation for module `$input_port'.
+Successfully finished Verilog frontend.
+
+3.22.2. Continuing TECHMAP pass.
+Using extmapper simplemap for cells of type $sdffe.
+Using template $paramod$7b16819b516a037d220ff7463dffc76498bbb23b\_90_alu for cells of type $alu.
+Using template $paramod$49559cee0eab08df4fa2fe438a9e41307bf01aed\_90_alu for cells of type $alu.
+Using extmapper maccmap for cells of type $macc_v2.
+  add \chunk_sums_r [5:0] (6 bits, unsigned)
+  add \chunk_sums_r [47:42] (6 bits, unsigned)
+  add \chunk_sums_r [41:36] (6 bits, unsigned)
+  add \chunk_sums_r [35:30] (6 bits, unsigned)
+  add \chunk_sums_r [29:24] (6 bits, unsigned)
+  add \chunk_sums_r [23:18] (6 bits, unsigned)
+  add \chunk_sums_r [17:12] (6 bits, unsigned)
+  add \chunk_sums_r [11:6] (6 bits, unsigned)
+  add \xnor_reg [192] (1 bits, unsigned)
+  add \xnor_reg [223] (1 bits, unsigned)
+  add \xnor_reg [222] (1 bits, unsigned)
+  add \xnor_reg [221] (1 bits, unsigned)
+  add \xnor_reg [220] (1 bits, unsigned)
+  add \xnor_reg [219] (1 bits, unsigned)
+  add \xnor_reg [218] (1 bits, unsigned)
+  add \xnor_reg [217] (1 bits, unsigned)
+  add \xnor_reg [216] (1 bits, unsigned)
+  add \xnor_reg [215] (1 bits, unsigned)
+  add \xnor_reg [214] (1 bits, unsigned)
+  add \xnor_reg [213] (1 bits, unsigned)
+  add \xnor_reg [212] (1 bits, unsigned)
+  add \xnor_reg [211] (1 bits, unsigned)
+  add \xnor_reg [210] (1 bits, unsigned)
+  add \xnor_reg [209] (1 bits, unsigned)
+  add \xnor_reg [208] (1 bits, unsigned)
+  add \xnor_reg [207] (1 bits, unsigned)
+  add \xnor_reg [206] (1 bits, unsigned)
+  add \xnor_reg [205] (1 bits, unsigned)
+  add \xnor_reg [204] (1 bits, unsigned)
+  add \xnor_reg [203] (1 bits, unsigned)
+  add \xnor_reg [202] (1 bits, unsigned)
+  add \xnor_reg [201] (1 bits, unsigned)
+  add \xnor_reg [200] (1 bits, unsigned)
+  add \xnor_reg [199] (1 bits, unsigned)
+  add \xnor_reg [198] (1 bits, unsigned)
+  add \xnor_reg [197] (1 bits, unsigned)
+  add \xnor_reg [196] (1 bits, unsigned)
+  add \xnor_reg [195] (1 bits, unsigned)
+  add \xnor_reg [194] (1 bits, unsigned)
+  add \xnor_reg [193] (1 bits, unsigned)
+  packed 15 (15) bits / 15 words into adder tree
+  add \xnor_reg [160] (1 bits, unsigned)
+  add \xnor_reg [191] (1 bits, unsigned)
+  add \xnor_reg [190] (1 bits, unsigned)
+  add \xnor_reg [189] (1 bits, unsigned)
+  add \xnor_reg [188] (1 bits, unsigned)
+  add \xnor_reg [187] (1 bits, unsigned)
+  add \xnor_reg [186] (1 bits, unsigned)
+  add \xnor_reg [185] (1 bits, unsigned)
+  add \xnor_reg [184] (1 bits, unsigned)
+  add \xnor_reg [183] (1 bits, unsigned)
+  add \xnor_reg [182] (1 bits, unsigned)
+  add \xnor_reg [181] (1 bits, unsigned)
+  add \xnor_reg [180] (1 bits, unsigned)
+  add \xnor_reg [179] (1 bits, unsigned)
+  add \xnor_reg [178] (1 bits, unsigned)
+  add \xnor_reg [177] (1 bits, unsigned)
+  add \xnor_reg [176] (1 bits, unsigned)
+  add \xnor_reg [175] (1 bits, unsigned)
+  add \xnor_reg [174] (1 bits, unsigned)
+  add \xnor_reg [173] (1 bits, unsigned)
+  add \xnor_reg [172] (1 bits, unsigned)
+  add \xnor_reg [171] (1 bits, unsigned)
+  add \xnor_reg [170] (1 bits, unsigned)
+  add \xnor_reg [169] (1 bits, unsigned)
+  add \xnor_reg [168] (1 bits, unsigned)
+  add \xnor_reg [167] (1 bits, unsigned)
+  add \xnor_reg [166] (1 bits, unsigned)
+  add \xnor_reg [165] (1 bits, unsigned)
+  add \xnor_reg [164] (1 bits, unsigned)
+  add \xnor_reg [163] (1 bits, unsigned)
+  add \xnor_reg [162] (1 bits, unsigned)
+  add \xnor_reg [161] (1 bits, unsigned)
+  packed 15 (15) bits / 15 words into adder tree
+  add \xnor_reg [128] (1 bits, unsigned)
+  add \xnor_reg [159] (1 bits, unsigned)
+  add \xnor_reg [158] (1 bits, unsigned)
+  add \xnor_reg [157] (1 bits, unsigned)
+  add \xnor_reg [156] (1 bits, unsigned)
+  add \xnor_reg [155] (1 bits, unsigned)
+  add \xnor_reg [154] (1 bits, unsigned)
+  add \xnor_reg [153] (1 bits, unsigned)
+  add \xnor_reg [152] (1 bits, unsigned)
+  add \xnor_reg [151] (1 bits, unsigned)
+  add \xnor_reg [150] (1 bits, unsigned)
+  add \xnor_reg [149] (1 bits, unsigned)
+  add \xnor_reg [148] (1 bits, unsigned)
+  add \xnor_reg [147] (1 bits, unsigned)
+  add \xnor_reg [146] (1 bits, unsigned)
+  add \xnor_reg [145] (1 bits, unsigned)
+  add \xnor_reg [144] (1 bits, unsigned)
+  add \xnor_reg [143] (1 bits, unsigned)
+  add \xnor_reg [142] (1 bits, unsigned)
+  add \xnor_reg [141] (1 bits, unsigned)
+  add \xnor_reg [140] (1 bits, unsigned)
+  add \xnor_reg [139] (1 bits, unsigned)
+  add \xnor_reg [138] (1 bits, unsigned)
+  add \xnor_reg [137] (1 bits, unsigned)
+  add \xnor_reg [136] (1 bits, unsigned)
+  add \xnor_reg [135] (1 bits, unsigned)
+  add \xnor_reg [134] (1 bits, unsigned)
+  add \xnor_reg [133] (1 bits, unsigned)
+  add \xnor_reg [132] (1 bits, unsigned)
+  add \xnor_reg [131] (1 bits, unsigned)
+  add \xnor_reg [130] (1 bits, unsigned)
+  add \xnor_reg [129] (1 bits, unsigned)
+  packed 15 (15) bits / 15 words into adder tree
+  add \xnor_reg [0] (1 bits, unsigned)
+  add \xnor_reg [31] (1 bits, unsigned)
+  add \xnor_reg [30] (1 bits, unsigned)
+  add \xnor_reg [29] (1 bits, unsigned)
+  add \xnor_reg [28] (1 bits, unsigned)
+  add \xnor_reg [27] (1 bits, unsigned)
+  add \xnor_reg [26] (1 bits, unsigned)
+  add \xnor_reg [25] (1 bits, unsigned)
+  add \xnor_reg [24] (1 bits, unsigned)
+  add \xnor_reg [23] (1 bits, unsigned)
+  add \xnor_reg [22] (1 bits, unsigned)
+  add \xnor_reg [21] (1 bits, unsigned)
+  add \xnor_reg [20] (1 bits, unsigned)
+  add \xnor_reg [19] (1 bits, unsigned)
+  add \xnor_reg [18] (1 bits, unsigned)
+  add \xnor_reg [17] (1 bits, unsigned)
+  add \xnor_reg [16] (1 bits, unsigned)
+  add \xnor_reg [15] (1 bits, unsigned)
+  add \xnor_reg [14] (1 bits, unsigned)
+  add \xnor_reg [13] (1 bits, unsigned)
+  add \xnor_reg [12] (1 bits, unsigned)
+  add \xnor_reg [11] (1 bits, unsigned)
+  add \xnor_reg [10] (1 bits, unsigned)
+  add \xnor_reg [9] (1 bits, unsigned)
+  add \xnor_reg [8] (1 bits, unsigned)
+  add \xnor_reg [7] (1 bits, unsigned)
+  add \xnor_reg [6] (1 bits, unsigned)
+  add \xnor_reg [5] (1 bits, unsigned)
+  add \xnor_reg [4] (1 bits, unsigned)
+  add \xnor_reg [3] (1 bits, unsigned)
+  add \xnor_reg [2] (1 bits, unsigned)
+  add \xnor_reg [1] (1 bits, unsigned)
+  packed 15 (15) bits / 15 words into adder tree
+  add \xnor_reg [96] (1 bits, unsigned)
+  add \xnor_reg [127] (1 bits, unsigned)
+  add \xnor_reg [126] (1 bits, unsigned)
+  add \xnor_reg [125] (1 bits, unsigned)
+  add \xnor_reg [124] (1 bits, unsigned)
+  add \xnor_reg [123] (1 bits, unsigned)
+  add \xnor_reg [122] (1 bits, unsigned)
+  add \xnor_reg [121] (1 bits, unsigned)
+  add \xnor_reg [120] (1 bits, unsigned)
+  add \xnor_reg [119] (1 bits, unsigned)
+  add \xnor_reg [118] (1 bits, unsigned)
+  add \xnor_reg [117] (1 bits, unsigned)
+  add \xnor_reg [116] (1 bits, unsigned)
+  add \xnor_reg [115] (1 bits, unsigned)
+  add \xnor_reg [114] (1 bits, unsigned)
+  add \xnor_reg [113] (1 bits, unsigned)
+  add \xnor_reg [112] (1 bits, unsigned)
+  add \xnor_reg [111] (1 bits, unsigned)
+  add \xnor_reg [110] (1 bits, unsigned)
+  add \xnor_reg [109] (1 bits, unsigned)
+  add \xnor_reg [108] (1 bits, unsigned)
+  add \xnor_reg [107] (1 bits, unsigned)
+  add \xnor_reg [106] (1 bits, unsigned)
+  add \xnor_reg [105] (1 bits, unsigned)
+  add \xnor_reg [104] (1 bits, unsigned)
+  add \xnor_reg [103] (1 bits, unsigned)
+  add \xnor_reg [102] (1 bits, unsigned)
+  add \xnor_reg [101] (1 bits, unsigned)
+  add \xnor_reg [100] (1 bits, unsigned)
+  add \xnor_reg [99] (1 bits, unsigned)
+  add \xnor_reg [98] (1 bits, unsigned)
+  add \xnor_reg [97] (1 bits, unsigned)
+  packed 15 (15) bits / 15 words into adder tree
+  add \xnor_reg [32] (1 bits, unsigned)
+  add \xnor_reg [63] (1 bits, unsigned)
+  add \xnor_reg [62] (1 bits, unsigned)
+  add \xnor_reg [61] (1 bits, unsigned)
+  add \xnor_reg [60] (1 bits, unsigned)
+  add \xnor_reg [59] (1 bits, unsigned)
+  add \xnor_reg [58] (1 bits, unsigned)
+  add \xnor_reg [57] (1 bits, unsigned)
+  add \xnor_reg [56] (1 bits, unsigned)
+  add \xnor_reg [55] (1 bits, unsigned)
+  add \xnor_reg [54] (1 bits, unsigned)
+  add \xnor_reg [53] (1 bits, unsigned)
+  add \xnor_reg [52] (1 bits, unsigned)
+  add \xnor_reg [51] (1 bits, unsigned)
+  add \xnor_reg [50] (1 bits, unsigned)
+  add \xnor_reg [49] (1 bits, unsigned)
+  add \xnor_reg [48] (1 bits, unsigned)
+  add \xnor_reg [47] (1 bits, unsigned)
+  add \xnor_reg [46] (1 bits, unsigned)
+  add \xnor_reg [45] (1 bits, unsigned)
+  add \xnor_reg [44] (1 bits, unsigned)
+  add \xnor_reg [43] (1 bits, unsigned)
+  add \xnor_reg [42] (1 bits, unsigned)
+  add \xnor_reg [41] (1 bits, unsigned)
+  add \xnor_reg [40] (1 bits, unsigned)
+  add \xnor_reg [39] (1 bits, unsigned)
+  add \xnor_reg [38] (1 bits, unsigned)
+  add \xnor_reg [37] (1 bits, unsigned)
+  add \xnor_reg [36] (1 bits, unsigned)
+  add \xnor_reg [35] (1 bits, unsigned)
+  add \xnor_reg [34] (1 bits, unsigned)
+  add \xnor_reg [33] (1 bits, unsigned)
+  packed 15 (15) bits / 15 words into adder tree
+  add \xnor_reg [224] (1 bits, unsigned)
+  add \xnor_reg [255] (1 bits, unsigned)
+  add \xnor_reg [254] (1 bits, unsigned)
+  add \xnor_reg [253] (1 bits, unsigned)
+  add \xnor_reg [252] (1 bits, unsigned)
+  add \xnor_reg [251] (1 bits, unsigned)
+  add \xnor_reg [250] (1 bits, unsigned)
+  add \xnor_reg [249] (1 bits, unsigned)
+  add \xnor_reg [248] (1 bits, unsigned)
+  add \xnor_reg [247] (1 bits, unsigned)
+  add \xnor_reg [246] (1 bits, unsigned)
+  add \xnor_reg [245] (1 bits, unsigned)
+  add \xnor_reg [244] (1 bits, unsigned)
+  add \xnor_reg [243] (1 bits, unsigned)
+  add \xnor_reg [242] (1 bits, unsigned)
+  add \xnor_reg [241] (1 bits, unsigned)
+  add \xnor_reg [240] (1 bits, unsigned)
+  add \xnor_reg [239] (1 bits, unsigned)
+  add \xnor_reg [238] (1 bits, unsigned)
+  add \xnor_reg [237] (1 bits, unsigned)
+  add \xnor_reg [236] (1 bits, unsigned)
+  add \xnor_reg [235] (1 bits, unsigned)
+  add \xnor_reg [234] (1 bits, unsigned)
+  add \xnor_reg [233] (1 bits, unsigned)
+  add \xnor_reg [232] (1 bits, unsigned)
+  add \xnor_reg [231] (1 bits, unsigned)
+  add \xnor_reg [230] (1 bits, unsigned)
+  add \xnor_reg [229] (1 bits, unsigned)
+  add \xnor_reg [228] (1 bits, unsigned)
+  add \xnor_reg [227] (1 bits, unsigned)
+  add \xnor_reg [226] (1 bits, unsigned)
+  add \xnor_reg [225] (1 bits, unsigned)
+  packed 15 (15) bits / 15 words into adder tree
+  add \xnor_reg [64] (1 bits, unsigned)
+  add \xnor_reg [95] (1 bits, unsigned)
+  add \xnor_reg [94] (1 bits, unsigned)
+  add \xnor_reg [93] (1 bits, unsigned)
+  add \xnor_reg [92] (1 bits, unsigned)
+  add \xnor_reg [91] (1 bits, unsigned)
+  add \xnor_reg [90] (1 bits, unsigned)
+  add \xnor_reg [89] (1 bits, unsigned)
+  add \xnor_reg [88] (1 bits, unsigned)
+  add \xnor_reg [87] (1 bits, unsigned)
+  add \xnor_reg [86] (1 bits, unsigned)
+  add \xnor_reg [85] (1 bits, unsigned)
+  add \xnor_reg [84] (1 bits, unsigned)
+  add \xnor_reg [83] (1 bits, unsigned)
+  add \xnor_reg [82] (1 bits, unsigned)
+  add \xnor_reg [81] (1 bits, unsigned)
+  add \xnor_reg [80] (1 bits, unsigned)
+  add \xnor_reg [79] (1 bits, unsigned)
+  add \xnor_reg [78] (1 bits, unsigned)
+  add \xnor_reg [77] (1 bits, unsigned)
+  add \xnor_reg [76] (1 bits, unsigned)
+  add \xnor_reg [75] (1 bits, unsigned)
+  add \xnor_reg [74] (1 bits, unsigned)
+  add \xnor_reg [73] (1 bits, unsigned)
+  add \xnor_reg [72] (1 bits, unsigned)
+  add \xnor_reg [71] (1 bits, unsigned)
+  add \xnor_reg [70] (1 bits, unsigned)
+  add \xnor_reg [69] (1 bits, unsigned)
+  add \xnor_reg [68] (1 bits, unsigned)
+  add \xnor_reg [67] (1 bits, unsigned)
+  add \xnor_reg [66] (1 bits, unsigned)
+  add \xnor_reg [65] (1 bits, unsigned)
+  packed 15 (15) bits / 15 words into adder tree
+Using extmapper simplemap for cells of type $sdff.
+Using extmapper simplemap for cells of type $reduce_or.
+Using extmapper simplemap for cells of type $xor.
+Using extmapper simplemap for cells of type $not.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000000001 for cells of type $fa.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000000010 for cells of type $fa.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000000011 for cells of type $fa.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000000100 for cells of type $fa.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000000101 for cells of type $fa.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000000110 for cells of type $fa.
+Using template $paramod$00298f3f8094950cb9a5ff2fda48d0d8bde8806c\_90_alu for cells of type $alu.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000000111 for cells of type $fa.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000001000 for cells of type $fa.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000001001 for cells of type $fa.
+Using template $paramod$d2fa05d38998afabc6d4f34471305d0af4b8b2df\_90_alu for cells of type $alu.
+Using template $paramod\_90_lcu_brent_kung\WIDTH=32'00000000000000000000000000000011 for cells of type $lcu.
+Using extmapper simplemap for cells of type $pos.
+Using extmapper simplemap for cells of type $mux.
+Using template $paramod\_90_fa\WIDTH=32'00000000000000000000000000011111 for cells of type $fa.
+Using template $paramod\_90_lcu_brent_kung\WIDTH=32'00000000000000000000000000011111 for cells of type $lcu.
+Using extmapper simplemap for cells of type $or.
+Using extmapper simplemap for cells of type $and.
+Using template $paramod\_90_lcu_brent_kung\WIDTH=32'00000000000000000000000000000110 for cells of type $lcu.
+Using template $paramod\_90_lcu_brent_kung\WIDTH=32'00000000000000000000000000001001 for cells of type $lcu.
+No more expansions possible.
+<suppressed ~1966 debug messages>
+
+3.23. Executing OPT pass (performing simple optimizations).
+
+3.23.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+<suppressed ~1128 debug messages>
+
+3.23.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 2510 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.23.3. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.23.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+Removed 81 unused cells and 1752 unused wires.
+<suppressed ~82 debug messages>
+
+3.23.5. Finished fast OPT passes.
+
+3.24. Executing ABC pass (technology mapping using ABC).
+
+3.24.1. Extracting gate netlist of module `\compute_core' to `<abc-temp-dir>/input.blif'..
+
+3.24.1.1. Executed ABC.
+Extracted 2090 gates and 2939 wires to a netlist network with 849 inputs and 336 outputs.
+Running ABC script: <abc-temp-dir>/abc.script
+ABC: ======== ABC command line "source <abc-temp-dir>/abc.script"
+ABC: + read_blif <abc-temp-dir>/input.blif 
+ABC: + read_library <abc-temp-dir>/stdcells.genlib 
+ABC: + strash 
+ABC: + &get -n 
+ABC: + &fraig -x 
+ABC: + &put 
+ABC: + scorr 
+ABC: Warning: The network is combinational (run "fraig" or "fraig_sweep").
+ABC: + dc2 
+ABC: + dretime 
+ABC: + strash 
+ABC: + &get -n 
+ABC: + &dch -f 
+ABC: + &nf 
+ABC: + &put 
+ABC: + write_blif <abc-temp-dir>/output.blif 
+
+3.24.1.2. Re-integrating ABC results.
+ABC RESULTS:               AND cells:       77
+ABC RESULTS:            ANDNOT cells:       44
+ABC RESULTS:               MUX cells:       10
+ABC RESULTS:              NAND cells:      649
+ABC RESULTS:               NOR cells:       11
+ABC RESULTS:               NOT cells:        1
+ABC RESULTS:                OR cells:      113
+ABC RESULTS:             ORNOT cells:        2
+ABC RESULTS:              XNOR cells:      466
+ABC RESULTS:               XOR cells:      373
+ABC RESULTS:        internal signals:     1754
+ABC RESULTS:           input signals:      849
+ABC RESULTS:          output signals:      336
+Removing temp directory.
+Removing global temp directory.
+
+3.25. Executing OPT pass (performing simple optimizations).
+
+3.25.1. Executing OPT_EXPR pass (perform const folding).
+Optimizing module compute_core.
+
+3.25.2. Executing OPT_MERGE pass (detect identical cells).
+Finding identical cells in module `\compute_core'.
+Computing hashes of 2085 cells of `\compute_core'.
+Finding duplicate cells in `\compute_core'.
+Removed a total of 0 cells.
+
+3.25.3. Executing OPT_DFF pass (perform DFF optimizations).
+
+3.25.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+Finding unused cells or wires in module \compute_core..
+Removed 0 unused cells and 2005 unused wires.
+<suppressed ~1 debug messages>
+
+3.25.5. Finished fast OPT passes.
+
+3.26. Executing HIERARCHY pass (managing design hierarchy).
+Attribute `top' found on module `compute_core'. Setting top module to compute_core.
+
+3.26.1. Analyzing design hierarchy..
+Top module:  \compute_core
+
+3.26.2. Analyzing design hierarchy..
+Top module:  \compute_core
+Removed 0 unused modules.
+
+3.27. Printing statistics.
+
+=== compute_core ===
+
+        +----------Local Count, excluding submodules.
+        | 
+     1431 wires
+     2675 wire bits
+       18 public wires
+     1202 public wire bits
+        8 ports
+      549 port bits
+     2085 cells
+       44   $_ANDNOT_
+       77   $_AND_
+       10   $_MUX_
+      649   $_NAND_
+       11   $_NOR_
+        1   $_NOT_
+        2   $_ORNOT_
+      113   $_OR_
+       31   $_SDFFE_PP0P_
+      308   $_SDFF_PP0_
+      466   $_XNOR_
+      373   $_XOR_
+
+3.28. Executing CHECK pass (checking for obvious problems).
+Checking module compute_core...
+Found and reported 0 problems.
+
+4. Executing DFFLIBMAP pass (mapping DFF cells to sequential cells from liberty file).
+  cell sky130_fd_sc_hd__dfxtp_1 (noninv, pins=3, area=20.02) is a direct match for cell type $_DFF_P_.
+  cell sky130_fd_sc_hd__dfrtn_1 (noninv, pins=4, area=25.02) is a direct match for cell type $_DFF_NN0_.
+  cell sky130_fd_sc_hd__dfrtp_1 (noninv, pins=4, area=25.02) is a direct match for cell type $_DFF_PN0_.
+  cell sky130_fd_sc_hd__dfstp_2 (noninv, pins=4, area=26.28) is a direct match for cell type $_DFF_PN1_.
+  cell sky130_fd_sc_hd__edfxtp_1 (noninv, pins=4, area=30.03) is a direct match for cell type $_DFFE_PP_.
+  cell sky130_fd_sc_hd__dfbbn_1 (noninv, pins=6, area=32.53) is a direct match for cell type $_DFFSR_NNN_.
+  cell sky130_fd_sc_hd__dfbbp_1 (noninv, pins=6, area=32.53) is a direct match for cell type $_DFFSR_PNN_.
+  final dff cell mappings:
+    unmapped dff cell: $_DFF_N_
+    \sky130_fd_sc_hd__dfxtp_1 _DFF_P_ (.CLK( C), .D( D), .Q( Q));
+    \sky130_fd_sc_hd__dfrtn_1 _DFF_NN0_ (.CLK_N( C), .D( D), .Q( Q), .RESET_B( R));
+    unmapped dff cell: $_DFF_NN1_
+    unmapped dff cell: $_DFF_NP0_
+    unmapped dff cell: $_DFF_NP1_
+    \sky130_fd_sc_hd__dfrtp_1 _DFF_PN0_ (.CLK( C), .D( D), .Q( Q), .RESET_B( R));
+    \sky130_fd_sc_hd__dfstp_2 _DFF_PN1_ (.CLK( C), .D( D), .Q( Q), .SET_B( R));
+    unmapped dff cell: $_DFF_PP0_
+    unmapped dff cell: $_DFF_PP1_
+    unmapped dff cell: $_DFFE_NN_
+    unmapped dff cell: $_DFFE_NP_
+    unmapped dff cell: $_DFFE_PN_
+    \sky130_fd_sc_hd__edfxtp_1 _DFFE_PP_ (.CLK( C), .D( D), .DE( E), .Q( Q));
+    \sky130_fd_sc_hd__dfbbn_1 _DFFSR_NNN_ (.CLK_N( C), .D( D), .Q( Q), .Q_N(~Q), .RESET_B( R), .SET_B( S));
+    unmapped dff cell: $_DFFSR_NNP_
+    unmapped dff cell: $_DFFSR_NPN_
+    unmapped dff cell: $_DFFSR_NPP_
+    \sky130_fd_sc_hd__dfbbp_1 _DFFSR_PNN_ (.CLK( C), .D( D), .Q( Q), .Q_N(~Q), .RESET_B( R), .SET_B( S));
+    unmapped dff cell: $_DFFSR_PNP_
+    unmapped dff cell: $_DFFSR_PPN_
+    unmapped dff cell: $_DFFSR_PPP_
+
+4.1. Executing DFFLEGALIZE pass (convert FFs to types supported by the target).
+<suppressed ~24 debug messages>
+Mapping DFF cells in module `\compute_core':
+  mapped 339 $_DFF_P_ cells to \sky130_fd_sc_hd__dfxtp_1 cells.
+
+5. Executing ABC pass (technology mapping using ABC).
+
+5.1. Extracting gate netlist of module `\compute_core' to `<abc-temp-dir>/input.blif'..
+
+5.1.1. Executed ABC.
+Extracted 2116 gates and 2971 wires to a netlist network with 854 inputs and 339 outputs.
+Running ABC script: <abc-temp-dir>/abc.script
+ABC: ======== ABC command line "source <abc-temp-dir>/abc.script"
+ABC: + read_blif <abc-temp-dir>/input.blif 
+ABC: + read_scl /var/folders/4_/w2bxllv56rj32bwm339nd2x80000gn/T/yosys-liberty-scl-cache/yosys_merged_0035842f.scl 
+ABC: Warning: Detected 9 multi-output cells (for example, "sky130_fd_sc_hd__fa_1").
+ABC: + strash 
+ABC: + &get -n 
+ABC: + &fraig -x 
+ABC: + &put 
+ABC: + scorr 
+ABC: Warning: The network is combinational (run "fraig" or "fraig_sweep").
+ABC: + dc2 
+ABC: + dretime 
+ABC: + retime -o -D 3333 
+ABC: + strash 
+ABC: + &get -n 
+ABC: + &dch -f 
+ABC: + &nf -D 3333 
+ABC: + &put 
+ABC: + write_blif <abc-temp-dir>/output.blif 
+
+5.1.2. Re-integrating ABC results.
+ABC RESULTS:   sky130_fd_sc_hd__a211oi_1 cells:        2
+ABC RESULTS:   sky130_fd_sc_hd__a21o_1 cells:       12
+ABC RESULTS:   sky130_fd_sc_hd__a21oi_1 cells:       77
+ABC RESULTS:   sky130_fd_sc_hd__a22o_1 cells:        2
+ABC RESULTS:   sky130_fd_sc_hd__a311oi_1 cells:        2
+ABC RESULTS:   sky130_fd_sc_hd__a31oi_1 cells:        7
+ABC RESULTS:   sky130_fd_sc_hd__a32o_1 cells:        4
+ABC RESULTS:   sky130_fd_sc_hd__a32oi_1 cells:        1
+ABC RESULTS:   sky130_fd_sc_hd__and2_0 cells:       23
+ABC RESULTS:   sky130_fd_sc_hd__and3_1 cells:       15
+ABC RESULTS:   sky130_fd_sc_hd__clkinv_1 cells:       64
+ABC RESULTS:   sky130_fd_sc_hd__lpflow_inputiso1p_1 cells:       33
+ABC RESULTS:   sky130_fd_sc_hd__lpflow_isobufsrc_1 cells:       35
+ABC RESULTS:   sky130_fd_sc_hd__maj3_1 cells:      140
+ABC RESULTS:   sky130_fd_sc_hd__mux2_1 cells:        1
+ABC RESULTS:   sky130_fd_sc_hd__nand2_1 cells:      116
+ABC RESULTS:   sky130_fd_sc_hd__nand2b_1 cells:       14
+ABC RESULTS:   sky130_fd_sc_hd__nand3_1 cells:        7
+ABC RESULTS:   sky130_fd_sc_hd__nand3b_1 cells:        1
+ABC RESULTS:   sky130_fd_sc_hd__nand4_1 cells:        3
+ABC RESULTS:   sky130_fd_sc_hd__nor2_1 cells:      326
+ABC RESULTS:   sky130_fd_sc_hd__nor2b_1 cells:        4
+ABC RESULTS:   sky130_fd_sc_hd__nor3_1 cells:       43
+ABC RESULTS:   sky130_fd_sc_hd__nor3b_1 cells:        2
+ABC RESULTS:   sky130_fd_sc_hd__o211ai_1 cells:        2
+ABC RESULTS:   sky130_fd_sc_hd__o21a_1 cells:       23
+ABC RESULTS:   sky130_fd_sc_hd__o21ai_0 cells:       91
+ABC RESULTS:   sky130_fd_sc_hd__o221a_1 cells:        1
+ABC RESULTS:   sky130_fd_sc_hd__o311ai_0 cells:        2
+ABC RESULTS:   sky130_fd_sc_hd__o31ai_1 cells:        3
+ABC RESULTS:   sky130_fd_sc_hd__o41ai_1 cells:        2
+ABC RESULTS:   sky130_fd_sc_hd__xnor2_1 cells:      318
+ABC RESULTS:   sky130_fd_sc_hd__xnor3_1 cells:       10
+ABC RESULTS:   sky130_fd_sc_hd__xor2_1 cells:      385
+ABC RESULTS:   sky130_fd_sc_hd__xor3_1 cells:       14
+ABC RESULTS:        internal signals:     1778
+ABC RESULTS:           input signals:      854
+ABC RESULTS:          output signals:      339
+Removing temp directory.
+Removing global temp directory.
+Removed 0 unused cells and 2639 unused wires.
+
+6. Printing statistics.
+
+=== compute_core ===
+
+        +----------Local Count, excluding submodules.
+        |        +-Local Area, excluding submodules.
+        |        | 
+     1801        - wires
+     2683        - wire bits
+       16        - public wires
+      898        - public wire bits
+        8        - ports
+      549        - port bits
+     2124 1.92E+04 cells
+        2   15.014   sky130_fd_sc_hd__a211oi_1
+       12   90.086   sky130_fd_sc_hd__a21o_1
+       77   385.37   sky130_fd_sc_hd__a21oi_1
+        2   17.517   sky130_fd_sc_hd__a22o_1
+        2   17.517   sky130_fd_sc_hd__a311oi_1
+        7   43.792   sky130_fd_sc_hd__a31oi_1
+        4   40.038   sky130_fd_sc_hd__a32o_1
+        1    8.758   sky130_fd_sc_hd__a32oi_1
+       23  143.888   sky130_fd_sc_hd__and2_0
+       15    93.84   sky130_fd_sc_hd__and3_1
+       64   240.23   sky130_fd_sc_hd__clkinv_1
+      339 6.79E+03   sky130_fd_sc_hd__dfxtp_1
+       33  206.448   sky130_fd_sc_hd__lpflow_inputiso1p_1
+       35   218.96   sky130_fd_sc_hd__lpflow_isobufsrc_1
+      140  1.4E+03   sky130_fd_sc_hd__maj3_1
+        1   11.261   sky130_fd_sc_hd__mux2_1
+      116  435.418   sky130_fd_sc_hd__nand2_1
+       14   87.584   sky130_fd_sc_hd__nand2b_1
+        7   35.034   sky130_fd_sc_hd__nand3_1
+        1    7.507   sky130_fd_sc_hd__nand3b_1
+        3   18.768   sky130_fd_sc_hd__nand4_1
+      326 1.22E+03   sky130_fd_sc_hd__nor2_1
+        4   25.024   sky130_fd_sc_hd__nor2b_1
+       43  215.206   sky130_fd_sc_hd__nor3_1
+        2   15.014   sky130_fd_sc_hd__nor3b_1
+        2   15.014   sky130_fd_sc_hd__o211ai_1
+       23  172.666   sky130_fd_sc_hd__o21a_1
+       91  455.437   sky130_fd_sc_hd__o21ai_0
+        1   11.261   sky130_fd_sc_hd__o221a_1
+        2   17.517   sky130_fd_sc_hd__o311ai_0
+        3   22.522   sky130_fd_sc_hd__o31ai_1
+        2   17.517   sky130_fd_sc_hd__o41ai_1
+      318 2.79E+03   sky130_fd_sc_hd__xnor2_1
+       10  225.216   sky130_fd_sc_hd__xnor3_1
+      385 3.37E+03   sky130_fd_sc_hd__xor2_1
+       14  332.819   sky130_fd_sc_hd__xor3_1
+
+   Chip area for module '\compute_core': 19210.924800
+     of which used for sequential elements: 6786.508800 (35.33%)
+
+7. Executing Verilog backend.
+ERROR: Can't open output file `synth/compute_core_pipelined_netlist.v' for writing: No such file or directory
+ERROR: TCL interpreter returned an error: Yosys command produced an error

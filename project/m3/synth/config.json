@@ -1,0 +1,18 @@
+{
+    "DESIGN_NAME": "compute_core",
+    "VERILOG_FILES": [
+        "dir::../rtl/compute_core.sv"
+    ],
+    "CLOCK_PORT": "clk",
+    "CLOCK_PERIOD": 3.33,
+    "PDK": "sky130A",
+    "STD_CELL_LIBRARY": "sky130_fd_sc_hd",
+    "QUIT_ON_LINT_ERRORS": false,
+    "SYNTH_STRATEGY": "AREA 0",
+    "FP_SIZING": "absolute",
+    "DIE_AREA": "0 0 350 350",
+    "CORE_AREA": "10 10 340 340",
+    "PL_TARGET_DENSITY_PCT": 30,
+    "FP_IO_MIN_DISTANCE": 1,
+    "_note": "Full bnn_top synthesis attempted but failed: 1512x256-bit weight memory generates ~387K FFs, exhausting ABC. Synthesis target scoped to compute_core only. See synthesis_notes.md."
+}
