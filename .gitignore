@@ -69,6 +69,7 @@ codefest/cf04/cocotb_mac/.venv/
 # OpenLane run artifacts (large, fully reproducible)
 codefest/cf07/runs/
 project/m3/synth/runs/
+project/m4/synth/runs/
 
 # M3 synthesis intermediates — keep config.json, openlane_run.log, and all report files
 project/m3/synth/compute_core_pipelined_netlist.v
@@ -78,6 +79,10 @@ project/m*/sim/tb_top
 
 # Large raw stdout dumps from OpenLane runs (narrative log is in openlane_run.log)
 project/m*/synth/openlane_*stage_run.log
+project/m*/synth/openlane_run_raw.log
+
+# Full per-cell timing path dumps (worst path + summary kept in timing_report.txt)
+project/m*/synth/timing_report_full.txt
 
 # Yosys ABC temporary directories (left by -nocleanup)
 codefest/cf07/_tmp_yosys-abc-*/
