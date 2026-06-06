@@ -41,6 +41,30 @@ The architecture uses heterogeneous precision. Conv1 is retained at INT8 fixed-p
 
 Conv2–4 run as 1-bit XNOR-popcount on the chiplet. Binary quantization reduces multiply cost to a single gate and addition cost to a bit-count. The M1 baseline showed the chiplet achieves 379.1 FLOP/byte arithmetic intensity — deeply compute-bound — confirming that 1-bit precision does not shift the bottleneck to memory bandwidth. The 32-bit signed accumulator preserves the full popcount range (up to ±256 per 256-bit vector) with ample headroom for multi-vector accumulation across kernel windows.
 
+## Milestone 4 — Full-Chip Place-and-Route
+
+See [`project/m4/README.md`](project/m4/README.md) for the complete M4 deliverable.
+
+M4 completes full-chip P&R of `bnn_top` on Sky130A HD using OpenLane 2.3.10, and
+re-validates the end-to-end co-simulation at WEIGHT_DEPTH=64.
+
+**Key results (WD=64 baseline, DRC/LVS PASSED):**
+- 78/78 OpenLane steps; Setup WNS +6.477 ns (MET at 100 MHz); total power 215.3 mW
+- Post-route: 1,043,990 µm² on 1,600×1,600 µm die (40.8% utilization)
+- Co-simulation: VERIFIABLE PASS — all 18 tile checks matched sv_dot reference
+- Roofline: 379 FLOP/byte (compute-bound); >200× throughput vs. M1 CPU baseline
+- SRAM macro integration (16× sky130_sram_1kbyte_1rw1r_32x256_8): in progress
+
+**Power optimizations implemented:**
+- Clock frequency target: 20 MHz (1.0+ MHz required for 30 FPS; 5× switching power reduction)
+- Operand isolation: XNOR/popcount registers gated on `s_valid` to reduce idle power
+
+See [`project/m4/bench/benchmark.md`](project/m4/bench/benchmark.md) for full HW vs. SW comparison
+and [`project/m4/report/design_justification.md`](project/m4/report/design_justification.md) for
+the architecture and design justification report.
+
+---
+
 ## 6. Reproducibility
 
 **Simulator:** Icarus Verilog (iverilog) v13.0

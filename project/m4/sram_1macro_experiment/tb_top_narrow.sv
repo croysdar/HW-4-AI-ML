@@ -1,34 +1,20 @@
 // =============================================================================
-// File   : project/m3/tb/tb_top.sv
+// File   : project/m4/sram_1macro_experiment/tb_top_narrow.sv
 // Module : tb_top
 //
-// End-to-end co-simulation testbench for bnn_top.
+// Co-simulation testbench for the narrow-compute, single-SRAM-macro bnn_top.
 //
-// Tests the dominant kernel from M1 profiling: conv4 (128 input channels,
-// 3×3 kernel → 5 × 256-bit weight beats per filter tile).  Also exercises
-// conv2 (2 beats) and conv3 (3 beats) by reconfiguring cfg_beats_per_tile
-// between phases.
+// Adapted from project/m4/tb/tb_top.sv. Functional contract is identical to
+// the 256-bit baseline: AXI activation beats in, signed tile-dot-product on
+// the AXI master interface, sv_dot reference unchanged. Differences are
+// purely mechanical:
 //
-// Protocol:
-//   All input data enters exclusively through the AXI4-Stream slave ports
-//   (s_axis_*).  All results are read exclusively through the AXI4-Stream
-//   master ports (m_axis_*).  The testbench never touches internal DUT
-//   signals for data transfer — only the interfaces a real host would use.
-//
-// Reference model:
-//   An independent SystemVerilog function (sv_dot) computes the expected
-//   accumulator value using $countones on the XNOR of each activation beat
-//   with the corresponding weight word.  This is entirely separate from the
-//   DUT's for-loop popcount.
-//
-// Test phases:
-//   Phase 1 — conv4 tile (5 beats): 3 tiles, random weights + activations.
-//   Phase 2 — conv2 tile (2 beats): 4 tiles, cfg reconfiguration.
-//   Phase 3 — conv3 tile (3 beats): 4 tiles.
-//   Phase 4 — backpressure: conv4 tiles with random m_axis_tready deassertions.
-//   Phase 5 — weight reload: reload weights and verify result changes.
-//
-// PASS/FAIL: single line printed at end. Grader reads the log.
+//   - WEIGHT_DEPTH parameter is 256 SRAM rows = 32 logical 256-bit beats
+//   - load_weight writes 8 × 32-bit SRAM rows per logical weight word
+//   - w_data is 32-bit; w_addr is 8-bit
+//   - Throughput is 8× slower per tile (one beat = 8 SRAM/compute cycles)
+//   - Phase plan tightened so the address counter stays below 32 logical
+//     beats; an extra reload precedes the backpressure phase
 // =============================================================================
 
 `timescale 1ns/1ps
@@ -37,10 +23,13 @@
 module tb_top;
 
     // ── Parameters ────────────────────────────────────────────────────────────
-    localparam int  VECTOR_WIDTH  = 256;
-    localparam int  WEIGHT_DEPTH  = 640;
-    localparam int  MAX_BEATS     = 5;
-    localparam real CLK_PERIOD    = 3.333; // ns — 300 MHz
+    localparam int  VECTOR_WIDTH    = 256;           // AXI side width
+    localparam int  CHUNK_WIDTH     = 32;            // SRAM / compute width
+    localparam int  CHUNKS_PER_BEAT = 8;             // VECTOR_WIDTH / CHUNK_WIDTH
+    localparam int  WEIGHT_DEPTH    = 256;           // SRAM rows
+    localparam int  LOGICAL_DEPTH   = WEIGHT_DEPTH / CHUNKS_PER_BEAT; // 32
+    localparam int  MAX_BEATS       = 5;
+    localparam real CLK_PERIOD      = 3.333;         // ns — 300 MHz
 
     // ── DUT ports ─────────────────────────────────────────────────────────────
     logic        clk, rst;
@@ -56,17 +45,19 @@ module tb_top;
     logic        m_axis_tlast;
 
     logic        w_en;
-    logic [$clog2(WEIGHT_DEPTH)-1:0] w_addr;
-    logic [VECTOR_WIDTH-1:0] w_data;
+    logic [$clog2(WEIGHT_DEPTH)-1:0] w_addr;          // 8 bits
+    logic [CHUNK_WIDTH-1:0]          w_data;          // 32 bits
 
     logic [3:0]  cfg_beats_per_tile;
     logic [15:0] tile_count;
 
     // ── DUT instantiation ─────────────────────────────────────────────────────
     bnn_top #(
-        .VECTOR_WIDTH(VECTOR_WIDTH),
-        .WEIGHT_DEPTH(WEIGHT_DEPTH),
-        .MAX_BEATS   (MAX_BEATS)
+        .VECTOR_WIDTH    (VECTOR_WIDTH),
+        .CHUNK_WIDTH     (CHUNK_WIDTH),
+        .CHUNKS_PER_BEAT (CHUNKS_PER_BEAT),
+        .WEIGHT_DEPTH    (WEIGHT_DEPTH),
+        .MAX_BEATS       (MAX_BEATS)
     ) dut (
         .clk               (clk),
         .rst               (rst),
@@ -92,14 +83,11 @@ module tb_top;
     // ── Test state ────────────────────────────────────────────────────────────
     int fail_count;
 
-    // Reference weight shadow — mirrors what was loaded into the DUT.
-    logic [VECTOR_WIDTH-1:0] ref_weights [0:WEIGHT_DEPTH-1];
+    // Reference shadow: 256-bit logical weight words (unchanged semantics).
+    logic [VECTOR_WIDTH-1:0] ref_weights [0:LOGICAL_DEPTH-1];
 
-    // Shared activation buffer (written before each tile, read by sv_dot).
-    // Packed as [beat][bit]: avoids unpacked-array-port limitation in Icarus.
     logic [MAX_BEATS-1:0][VECTOR_WIDTH-1:0] act_buf;
 
-    // ── Helper: random 256-bit word ───────────────────────────────────────────
     function automatic logic [255:0] rand256();
         logic [255:0] v;
         for (int w = 0; w < 8; w++)
@@ -107,11 +95,9 @@ module tb_top;
         return v;
     endfunction
 
-    // ── Reference dot-product model ───────────────────────────────────────────
-    // Reads act_buf[0..n_beats-1] and ref_weights[base_addr..base_addr+n_beats-1].
-    // Returns the expected signed accumulator value.
+    // ── Reference dot-product model (unchanged) ───────────────────────────────
     function automatic logic signed [31:0] sv_dot(
-        input int base_addr,
+        input int base_addr,    // in logical-beat units
         input int n_beats
     );
         logic signed [31:0] acc;
@@ -126,18 +112,20 @@ module tb_top;
         return acc;
     endfunction
 
-    // ── Task: load one weight word via sideband port ──────────────────────────
-    task automatic load_weight(input int addr, input logic [255:0] wval);
-        @(posedge clk); #1;
-        w_en              = 1'b1;
-        w_addr            = $clog2(WEIGHT_DEPTH)'(addr);
-        w_data            = wval;
-        ref_weights[addr] = wval;
+    // ── Task: load one LOGICAL weight word (256-bit) as 8 × 32-bit chunks ─────
+    task automatic load_weight(input int logical_addr, input logic [255:0] wval);
+        int base = logical_addr * CHUNKS_PER_BEAT;
+        ref_weights[logical_addr] = wval;
+        for (int c = 0; c < CHUNKS_PER_BEAT; c++) begin
+            @(posedge clk); #1;
+            w_en   = 1'b1;
+            w_addr = $clog2(WEIGHT_DEPTH)'(base + c);
+            w_data = wval[c*CHUNK_WIDTH +: CHUNK_WIDTH];
+        end
         @(posedge clk); #1;
         w_en = 1'b0;
     endtask
 
-    // ── Task: send one AXI beat through the slave interface ───────────────────
     task automatic send_beat(
         input logic [VECTOR_WIDTH-1:0] data,
         input logic                    tlast
@@ -151,7 +139,6 @@ module tb_top;
         s_axis_tlast  = 1'b0;
     endtask
 
-    // ── Task: read one result from the AXI master interface ───────────────────
     task automatic read_result(output logic signed [31:0] result);
         m_axis_tready = 1'b1;
         do @(posedge clk); while (!m_axis_tvalid);
@@ -160,28 +147,22 @@ module tb_top;
         m_axis_tready = 1'b0;
     endtask
 
-    // ── Task: fill act_buf with random data ───────────────────────────────────
     task automatic fill_acts(input int n_beats);
         for (int b = 0; b < n_beats; b++)
             act_buf[b] = rand256();
     endtask
 
-    // ── Task: run one tile and check result ───────────────────────────────────
     task automatic run_tile_check(
         input int    n_beats,
         input int    w_base,
         input string tag
     );
         logic signed [31:0] expected, got;
-
         fill_acts(n_beats);
         expected = sv_dot(w_base, n_beats);
-
         for (int b = 0; b < n_beats; b++)
             send_beat(act_buf[b], (b == n_beats - 1) ? 1'b1 : 1'b0);
-
         read_result(got);
-
         if (got !== expected) begin
             $display("FAIL [%s] w_base=%0d | DUT=%0d expected=%0d",
                      tag, w_base, got, expected);
@@ -191,41 +172,27 @@ module tb_top;
         end
     endtask
 
-    // ── Task: flush any pending result from the master interface ──────────────
-    // Ensures result_valid is low before starting a new backpressure tile,
-    // so the receive thread cannot accidentally capture a stale result.
     task automatic flush_result();
         if (m_axis_tvalid) begin
             m_axis_tready = 1'b1;
             do @(posedge clk); while (!m_axis_tvalid);
             #1; m_axis_tready = 1'b0;
         end
-        // Also wait until valid deasserts
         while (m_axis_tvalid) @(posedge clk);
         #1;
     endtask
 
-    // ── Task: run one tile with backpressure on m_axis_tready ─────────────────
     task automatic run_tile_bp(
         input int    n_beats,
         input int    w_base,
         input string tag
     );
         logic signed [31:0] expected, got;
-
-        // Flush any leftover result before starting so the recv thread
-        // only sees the result produced by this tile's beats.
         flush_result();
-
         fill_acts(n_beats);
         expected = sv_dot(w_base, n_beats);
-
-        // Stream beats, then wait for result with random backpressure.
-        // Sequential (not fork) avoids racing against a stale result_valid.
         for (int b = 0; b < n_beats; b++)
             send_beat(act_buf[b], (b == n_beats - 1) ? 1'b1 : 1'b0);
-
-        // Now randomly toggle tready until we capture the result.
         got = '0;
         forever begin
             @(posedge clk); #1;
@@ -236,7 +203,6 @@ module tb_top;
                 break;
             end
         end
-
         if (got !== expected) begin
             $display("FAIL [%s bp] w_base=%0d | DUT=%0d expected=%0d",
                      tag, w_base, got, expected);
@@ -246,12 +212,19 @@ module tb_top;
         end
     endtask
 
+    // ── Helper: reset DUT (clears w_ptr) ──────────────────────────────────────
+    task automatic do_reset();
+        rst = 1'b1;
+        repeat (4) @(posedge clk); #1;
+        rst = 1'b0;
+        repeat (2) @(posedge clk); #1;
+    endtask
+
     // ── Main test sequence ────────────────────────────────────────────────────
     initial begin
-        $dumpfile("project/m4/sim/cosim_run.vcd");
+        $dumpfile("project/m4/sram_1macro_experiment/cosim_run.vcd");
         $dumpvars(0, tb_top);
 
-        // Initialise
         rst                = 1'b1;
         s_axis_tvalid      = 1'b0;
         s_axis_tdata       = '0;
@@ -263,78 +236,63 @@ module tb_top;
         cfg_beats_per_tile = 4'd5;
         fail_count         = 0;
 
-        repeat (4) @(posedge clk);
-        #1; rst = 1'b0;
-        repeat (2) @(posedge clk); #1;
+        do_reset();
 
-        // ── Load all weights via sideband port ────────────────────────────────
-        $display("── Loading %0d weight words via sideband ──", WEIGHT_DEPTH);
-        for (int i = 0; i < WEIGHT_DEPTH; i++)
+        // ── Load all 32 logical weight words (= 256 SRAM rows) ────────────────
+        $display("── Loading %0d logical weight words (= %0d SRAM rows) ──",
+                 LOGICAL_DEPTH, WEIGHT_DEPTH);
+        for (int i = 0; i < LOGICAL_DEPTH; i++)
             load_weight(i, rand256());
         $display("   Weight load complete.");
         repeat (2) @(posedge clk); #1;
 
-        // ─────────────────────────────────────────────────────────────────────
-        // Phase 1: conv4 (5 beats/tile) — dominant kernel from M1 profiling
-        // ─────────────────────────────────────────────────────────────────────
+        // Phase 1 — conv4 (5 beats), 3 tiles, w_base 0/5/10. After: w_ptr=120.
         $display("── Phase 1: conv4 (5 beats/tile), 3 tiles ──");
         cfg_beats_per_tile = 4'd5;
         repeat (2) @(posedge clk); #1;
-
         run_tile_check(5,  0, "conv4");
         run_tile_check(5,  5, "conv4");
         run_tile_check(5, 10, "conv4");
 
-        // ─────────────────────────────────────────────────────────────────────
-        // Phase 2: conv2 (2 beats/tile)
-        // w_ptr is at 15 after 3 conv4 tiles (3×5=15 beats consumed).
-        // ─────────────────────────────────────────────────────────────────────
+        // Phase 2 — conv2 (2 beats), 4 tiles, w_base 15..21. After: w_ptr=184.
         $display("── Phase 2: conv2 (2 beats/tile), 4 tiles ──");
         cfg_beats_per_tile = 4'd2;
         repeat (2) @(posedge clk); #1;
-
         run_tile_check(2, 15, "conv2");
         run_tile_check(2, 17, "conv2");
         run_tile_check(2, 19, "conv2");
         run_tile_check(2, 21, "conv2");
 
-        // ─────────────────────────────────────────────────────────────────────
-        // Phase 3: conv3 (3 beats/tile)
-        // w_ptr is at 23 after Phase 2 (15 + 4×2 = 23).
-        // ─────────────────────────────────────────────────────────────────────
-        $display("── Phase 3: conv3 (3 beats/tile), 4 tiles ──");
+        // Phase 3 — conv3 (3 beats), 3 tiles, w_base 23..29. After: w_ptr=256.
+        // One fewer tile than the 256-bit baseline to stay within the 32-word
+        // SRAM capacity (29+3 = 32 logical beats = 256 SRAM rows = exactly full).
+        $display("── Phase 3: conv3 (3 beats/tile), 3 tiles ──");
         cfg_beats_per_tile = 4'd3;
         repeat (2) @(posedge clk); #1;
-
         run_tile_check(3, 23, "conv3");
         run_tile_check(3, 26, "conv3");
         run_tile_check(3, 29, "conv3");
-        run_tile_check(3, 32, "conv3");
 
-        // ─────────────────────────────────────────────────────────────────────
-        // Phase 4: conv4 with random m_axis_tready backpressure
-        // w_ptr is at 35 after Phase 3 (23 + 4×3 = 35).
-        // ─────────────────────────────────────────────────────────────────────
+        // ── Reset between phases — clears w_ptr so backpressure phase
+        // can re-use w_base=0..14 without wrap concerns. Weights are SRAM-
+        // resident (no clear); ref_weights shadow is also retained.
+        $display("── Reset (clears w_ptr; weights remain in SRAM) ──");
+        do_reset();
+        cfg_beats_per_tile = 4'd5;
+
+        // Phase 4 — backpressure on conv4 tiles, w_base 0..10.
         $display("── Phase 4: conv4 backpressure, 3 tiles ──");
-        cfg_beats_per_tile = 4'd5;
         repeat (2) @(posedge clk); #1;
+        run_tile_bp(5,  0, "conv4");
+        run_tile_bp(5,  5, "conv4");
+        run_tile_bp(5, 10, "conv4");
 
-        run_tile_bp(5, 35, "conv4");
-        run_tile_bp(5, 40, "conv4");
-        run_tile_bp(5, 45, "conv4");
-
-        // ─────────────────────────────────────────────────────────────────────
-        // Phase 5: weight reload — overwrite words 0-4, reset, verify result
-        // Expected: all-ones act XOR all-ones weight = all-ones XNOR = all-ones
-        //           popcount = 256, dot = 256 per beat, 5 beats → total = 1280
-        // ─────────────────────────────────────────────────────────────────────
+        // Phase 5 — weight reload. Overwrite logical words 0..4 with all-ones,
+        // reset, then run one 5-beat tile of all-ones activations.
+        // Expected: popcount=256, dot=256/beat, 5 beats → 1280.
         $display("── Phase 5: weight reload (all-ones pattern) ──");
-        rst = 1'b1;
-        repeat (4) @(posedge clk); #1;
-        rst = 1'b0;
-        repeat (2) @(posedge clk); #1;
+        do_reset();
         cfg_beats_per_tile = 4'd5;
-
         for (int i = 0; i < 5; i++)
             load_weight(i, {VECTOR_WIDTH{1'b1}});
         repeat (2) @(posedge clk); #1;
@@ -343,12 +301,10 @@ module tb_top;
             logic signed [31:0] got, expected;
             for (int b = 0; b < 5; b++)
                 act_buf[b] = {VECTOR_WIDTH{1'b1}};
-            expected = sv_dot(0, 5);   // expects 1280
-
+            expected = sv_dot(0, 5);   // 1280
             for (int b = 0; b < 5; b++)
                 send_beat(act_buf[b], (b == 4) ? 1'b1 : 1'b0);
             read_result(got);
-
             if (got !== expected) begin
                 $display("FAIL [weight reload] DUT=%0d expected=%0d", got, expected);
                 fail_count++;
@@ -357,7 +313,6 @@ module tb_top;
             end
         end
 
-        // ── Verdict ───────────────────────────────────────────────────────────
         repeat (4) @(posedge clk);
         $display("─────────────────────────────────────────────────");
         if (fail_count == 0)

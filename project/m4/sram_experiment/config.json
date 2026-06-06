@@ -1,0 +1,51 @@
+{
+    "DESIGN_NAME": "bnn_top",
+
+    "VERILOG_FILES": [
+        "dir::top_sram.sv",
+        "dir::../rtl/compute_core.sv",
+        "dir::../rtl/interface.sv",
+        "dir::../rtl/sky130_sram_2kbyte_1rw1r_32x512_8_stub.v"
+    ],
+
+    "CLOCK_PORT": "clk",
+    "CLOCK_PERIOD": 50.0,
+    "PDK": "sky130A",
+    "STD_CELL_LIBRARY": "sky130_fd_sc_hd",
+
+    "_comment_strategy": "AREA 0 — same as register-file flow; compute logic unchanged",
+    "SYNTH_STRATEGY": "AREA 0",
+
+    "_comment_macros": "8 SRAM macros for 256-bit-wide × 512-deep weight memory. Paths are inside the Docker container's volare cache (mounted from host).",
+    "EXTRA_LEFS": [
+        "/root/.volare/volare/sky130/versions/0fe599b2afb6708d281543108caf8310912f54af/sky130A/libs.ref/sky130_sram_macros/lef/sky130_sram_2kbyte_1rw1r_32x512_8.lef"
+    ],
+    "EXTRA_LIBS": [
+        "/root/.volare/volare/sky130/versions/0fe599b2afb6708d281543108caf8310912f54af/sky130A/libs.ref/sky130_sram_macros/lib/sky130_sram_2kbyte_1rw1r_32x512_8_TT_1p8V_25C.lib"
+    ],
+    "EXTRA_GDS_FILES": [
+        "/root/.volare/volare/sky130/versions/0fe599b2afb6708d281543108caf8310912f54af/sky130A/libs.ref/sky130_sram_macros/gds/sky130_sram_2kbyte_1rw1r_32x512_8.gds"
+    ],
+
+    "_comment_blackbox": "Yosys auto-blackboxes the SRAM via its empty-body stub in VERILOG_FILES",
+
+    "_comment_layers": "RT_MIN_LAYER/RT_MAX_LAYER forces BOTH signal and clock routing to met3+ via set_routing_layers. DRT_MIN_LAYER (wrong variable — only affects clock in OL2) replaced with RT_MIN_LAYER.",
+    "RT_MIN_LAYER": "met3",
+    "RT_MAX_LAYER": "met5",
+
+    "_comment_grt_throttle": "Block li1/met1/met2 (indices 0-2) so router stays on met3+. Format: List[Decimal] in layer order li1,met1,met2,met3,met4,met5.",
+    "GRT_LAYER_ADJUSTMENTS": [1.0, 1.0, 1.0, 0, 0, 0],
+
+    "_comment_macro_extension": "Pad SRAM macro boundaries with extra GCells of routing exclusion",
+    "GRT_MACRO_EXTENSION": 4,
+
+    "_comment_placement": "Manual SRAM placement — 4×2 grid in lower-left quadrant, leaves rest for compute",
+    "MACRO_PLACEMENT_CFG": "dir::macro_placement.cfg",
+
+    "_comment_floorplan": "Generous die (3600x3600 µm). Macros take ~1.5 mm² of total ~13 mm² die.",
+    "FP_SIZING": "absolute",
+    "DIE_AREA": "0 0 3600 3600",
+    "CORE_AREA": "20 20 3580 3580",
+
+    "PL_TARGET_DENSITY_PCT": 40
+}

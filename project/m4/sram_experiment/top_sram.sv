@@ -1,39 +1,39 @@
 // =============================================================================
-// File   : project/m4/rtl/top.sv
-// Module : bnn_top
+// File   : project/m4/sram_experiment/top_sram.sv
+// Module : bnn_top  (SRAM-backed weight memory variant)
 //
 // Description
 // -----------
-// M4 integration top for the BNN XNOR-Popcount hardware accelerator chiplet.
-// Synthesizes the full bnn_top datapath (AXI4-Stream interfaces + 3-stage
-// pipelined compute_core + tile FSM) with a register-file weight memory
-// at WEIGHT_DEPTH=640 words × 256 bits.
+// SRAM-backed variant of bnn_top for the Option 5 experiment: integrate
+// sky130_sram_2kbyte_1rw1r_32x512_8 OpenRAM macros for weight memory and use
+// OpenLane 2's DRT_MIN_LAYER + GRT_LAYER_ADJUSTMENTS to force the router away
+// from met1+met2 (the layers blocked by the macros' full-body obstructions).
 //
-// Weight memory
-// -------------
-// WEIGHT_DEPTH=640 uses a 640×256-bit register file (~164K FFs). This holds
-// the largest single sub-layer pass (128 conv4 output filters × 5 beats/filter
-// = 640 words), enabling host-driven weight reload for layer/sub-layer tiling:
-// a full inference performs 4 reload passes per frame (conv2, conv3, conv4
-// upper-half, conv4 lower-half). At 30 FPS this is ~280 KB/s AXI traffic —
-// negligible. The full production WEIGHT_DEPTH=1792 (256 KB) cannot be held
-// on-chip with a register file due to Yosys/ABC FF count limits and would
-// require SRAM macros. SRAM macro integration was attempted but the available
-// sky130_sram_*_1rw1r macros carry full-body met1+met2 obstructions that
-// cause routing congestion (GRT-0118) regardless of die size or macro
-// arrangement. This is documented in the M4 README and synthesis_notes.md.
+// Memory architecture
+// -------------------
+// 8 macros in parallel for 256-bit word width:
+//   bank[0]: bits[31:0]    bank[1]: bits[63:32]   bank[2]: bits[95:64]
+//   bank[3]: bits[127:96]  bank[4]: bits[159:128] bank[5]: bits[191:160]
+//   bank[6]: bits[223:192] bank[7]: bits[255:224]
+// Each macro: 32-bit word × 512 entries → total 512 × 256-bit words.
 //
-// Port Descriptions
-// -----------------
-// clk                 in   1      System clock (300 MHz target)
-// rst                 in   1      Active-high synchronous reset
-// s_axis_*            in/out      AXI4-Stream slave (activation input)
-// m_axis_*            out/in      AXI4-Stream master (result output)
-// w_en                in   1      Write enable: load one weight word
-// w_addr              in   10     Word address (0..639)
-// w_data              in   256    Weight word (256-bit)
-// cfg_beats_per_tile  in   4      Beats per filter tile (2/3/5)
-// tile_count          out  16     Completed tile count since reset
+// Port assignment per macro:
+//   Port 0 (R+W, port 0 used for both load and read): driven by w_en/w_addr
+//     during weight loading, and by w_ptr during compute.
+//   Port 1 (R-only, unused in this design): tied off (csb1 = 1).
+//
+// SRAM has a 1-cycle read latency. We register w_ptr to align weight_word with
+// the activation beat that read it. The compute_core pipeline is unchanged
+// (3 stages); the SRAM read latency adds one extra stage to the weight path.
+//
+// Identical to register-file bnn_top in:
+//   - AXI4-Stream slave/master interfaces
+//   - axis_interface skid buffer
+//   - compute_core (3-stage XNOR+popcount)
+//   - tile FSM (beat counter, last_beat detection, accum_clear timing)
+//   - Tile counter status output
+//
+// Differs only in the weight memory implementation.
 // =============================================================================
 
 `timescale 1ns/1ps
@@ -41,7 +41,7 @@
 
 module bnn_top #(
     parameter int VECTOR_WIDTH  = 256,
-    parameter int WEIGHT_DEPTH  = 640,
+    parameter int WEIGHT_DEPTH  = 512,   // 8 macros × 512 entries (Port 0 only)
     parameter int MAX_BEATS     = 5
 ) (
     input  logic        clk,
@@ -80,21 +80,50 @@ module bnn_top #(
     logic        frame_done;
 
     // =========================================================================
-    // Weight memory — 64×256-bit register file
+    // Weight memory — 8 × sky130_sram_2kbyte_1rw1r_32x512_8 macros
     // =========================================================================
-    localparam int W_ADDR_W = $clog2(WEIGHT_DEPTH);
+    localparam int W_ADDR_W  = $clog2(WEIGHT_DEPTH);   // 9 bits for 512
+    localparam int N_BANKS   = 8;                       // 8 × 32-bit = 256-bit word
+    localparam int BANK_W    = 32;
 
-    logic [VECTOR_WIDTH-1:0] weight_mem [0:WEIGHT_DEPTH-1];
-    logic [VECTOR_WIDTH-1:0] weight_word;
     logic [W_ADDR_W-1:0]     w_ptr;
+    logic [VECTOR_WIDTH-1:0] weight_word;
 
-    always_ff @(posedge clk)
-        if (w_en) weight_mem[w_addr] <= w_data;
+    // Mux: during weight load, address with w_addr; during compute, address with w_ptr.
+    logic [W_ADDR_W-1:0] sram_addr;
+    assign sram_addr = w_en ? w_addr : w_ptr;
 
-    assign weight_word = weight_mem[w_ptr];
+    // 1-deep address pipeline to align registered SRAM output with compute pipeline.
+    // SRAM has 1-cycle read latency; activations arrive at compute_core 1 cycle after
+    // entering axis_interface skid buffer.
+    logic        w_en_d;
+    always_ff @(posedge clk) begin
+        if (rst) w_en_d <= 1'b0;
+        else     w_en_d <= w_en;
+    end
+
+    genvar gb;
+    generate
+        for (gb = 0; gb < N_BANKS; gb++) begin : g_sram_bank
+            sky130_sram_2kbyte_1rw1r_32x512_8 u_bank (
+                .clk0   (clk),
+                .csb0   (1'b0),                              // chip select active-low: enabled
+                .web0   (~w_en),                             // write enable active-low
+                .wmask0 (4'b1111),                           // write all 4 bytes
+                .addr0  (sram_addr),
+                .din0   (w_data[gb*BANK_W +: BANK_W]),
+                .dout0  (weight_word[gb*BANK_W +: BANK_W]),
+                // Port 1 (R-only): unused, tied off
+                .clk1   (clk),
+                .csb1   (1'b1),                              // disabled
+                .addr1  ('0),
+                .dout1  ()                                    // unconnected
+            );
+        end
+    endgenerate
 
     // =========================================================================
-    // axis_interface (AXI4-Stream slave)
+    // axis_interface (AXI4-Stream slave) — IDENTICAL to register-file design
     // =========================================================================
     axis_interface u_axis_if (
         .aclk          (clk),
@@ -110,7 +139,10 @@ module bnn_top #(
     );
 
     // =========================================================================
-    // Weight address counter
+    // Weight address counter — increments on every accepted activation beat.
+    // The SRAM produces weight_word on the cycle AFTER w_ptr advances, which
+    // aligns with the activation reaching compute_core (also +1 cycle delay
+    // through axis_interface skid buffer).
     // =========================================================================
     always_ff @(posedge clk) begin
         if (rst)
@@ -124,7 +156,7 @@ module bnn_top #(
     end
 
     // =========================================================================
-    // Tile beat counter
+    // Tile beat counter — IDENTICAL to register-file design
     // =========================================================================
     localparam int BEAT_CTR_W = $clog2(MAX_BEATS + 1);
     logic [BEAT_CTR_W-1:0] beat_ctr;
@@ -168,7 +200,7 @@ module bnn_top #(
     end
 
     // =========================================================================
-    // compute_core (3-stage pipelined)
+    // compute_core (3-stage pipelined) — IDENTICAL to register-file design
     // =========================================================================
     logic signed [31:0] accum_out;
     logic               accum_clear;
@@ -190,7 +222,7 @@ module bnn_top #(
     );
 
     // =========================================================================
-    // AXI4-Stream master output (1-deep register slice)
+    // AXI4-Stream master output (1-deep register slice) — IDENTICAL
     // =========================================================================
     logic [31:0] result_reg;
     logic        result_valid;
@@ -214,7 +246,7 @@ module bnn_top #(
     assign m_axis_tlast  = result_valid;
 
     // =========================================================================
-    // Tile counter
+    // Tile counter — IDENTICAL
     // =========================================================================
     always_ff @(posedge clk) begin
         if (rst)

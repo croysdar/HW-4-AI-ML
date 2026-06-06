@@ -1,27 +1,27 @@
 VCD info: dumpfile project/m4/sim/cosim_run.vcd opened for output.
-── Loading 64 weight words via sideband ──
+── Loading 640 weight words via sideband ──
    Weight load complete.
 ── Phase 1: conv4 (5 beats/tile), 3 tiles ──
-  OK  [conv4] w_base=0 | result=4
-  OK  [conv4] w_base=5 | result=-90
-  OK  [conv4] w_base=10 | result=40
+  OK  [conv4] w_base=0 | result=-66
+  OK  [conv4] w_base=5 | result=-32
+  OK  [conv4] w_base=10 | result=-20
 ── Phase 2: conv2 (2 beats/tile), 4 tiles ──
-  OK  [conv2] w_base=15 | result=-18
-  OK  [conv2] w_base=17 | result=-34
-  OK  [conv2] w_base=19 | result=-48
-  OK  [conv2] w_base=21 | result=-58
+  OK  [conv2] w_base=15 | result=18
+  OK  [conv2] w_base=17 | result=-26
+  OK  [conv2] w_base=19 | result=-24
+  OK  [conv2] w_base=21 | result=-16
 ── Phase 3: conv3 (3 beats/tile), 4 tiles ──
-  OK  [conv3] w_base=23 | result=6
-  OK  [conv3] w_base=26 | result=-10
-  OK  [conv3] w_base=29 | result=-52
-  OK  [conv3] w_base=32 | result=-92
+  OK  [conv3] w_base=23 | result=0
+  OK  [conv3] w_base=26 | result=10
+  OK  [conv3] w_base=29 | result=36
+  OK  [conv3] w_base=32 | result=44
 ── Phase 4: conv4 backpressure, 3 tiles ──
-  OK  [conv4 bp] w_base=35 | result=-42
-  OK  [conv4 bp] w_base=40 | result=104
-  OK  [conv4 bp] w_base=45 | result=-50
+  OK  [conv4 bp] w_base=35 | result=36
+  OK  [conv4 bp] w_base=40 | result=-22
+  OK  [conv4 bp] w_base=45 | result=-68
 ── Phase 5: weight reload (all-ones pattern) ──
   OK  [weight reload] result=1280 (expected 1280)
 ─────────────────────────────────────────────────
 VERIFIABLE PASS — all tile checks matched sv_dot reference
 ─────────────────────────────────────────────────
-project/m4/tb/tb_top.sv:369: $finish called at 1008535 (1ps)
+project/m4/tb/tb_top.sv:369: $finish called at 4839301 (1ps)

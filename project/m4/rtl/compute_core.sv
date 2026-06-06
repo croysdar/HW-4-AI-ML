@@ -77,6 +77,9 @@ module compute_core #(
 
     // ── Pipeline register 1: XNOR → chunk popcount stage ──────────────────────
     // Captures bit-wise XNOR result. Latency 1 cycle, throughput 1/clk.
+    // Operand isolation: only latch when handshake is active. When s_valid & s_ready
+    // is low the inputs are stale/undefined and would toggle the 256-bit XNOR tree
+    // for no reason, burning dynamic power in the widest datapath stage.
     logic [VECTOR_WIDTH-1:0] xnor_reg;
     logic                    s_valid_r;
     logic                    accum_clear_r;
@@ -87,7 +90,8 @@ module compute_core #(
             s_valid_r     <= 1'b0;
             accum_clear_r <= 1'b0;
         end else begin
-            xnor_reg      <= xnor_bits;
+            if (s_valid & s_ready)
+                xnor_reg  <= xnor_bits;
             s_valid_r     <= s_valid & s_ready;
             accum_clear_r <= accum_clear;
         end
@@ -117,6 +121,8 @@ module compute_core #(
     // ── Pipeline register 2: chunk sums + control ─────────────────────────────
     // Splits the Stage 2 adder tree from the Stage 3 final sum + accumulate.
     // Latency now 3 cycles; throughput unchanged at 1/clk.
+    // Operand isolation: only latch chunk sums when the stage 1 result is valid,
+    // preventing the 8-chunk popcount adder tree from toggling on stale data.
     logic [N_CHUNKS-1:0][CHUNK_SUM_W-1:0] chunk_sums_r;
     logic                                  s_valid_r2;
     logic                                  accum_clear_r2;
@@ -127,7 +133,8 @@ module compute_core #(
             s_valid_r2     <= 1'b0;
             accum_clear_r2 <= 1'b0;
         end else begin
-            chunk_sums_r   <= chunk_sums;
+            if (s_valid_r)
+                chunk_sums_r <= chunk_sums;
             s_valid_r2     <= s_valid_r;
             accum_clear_r2 <= accum_clear_r;
         end

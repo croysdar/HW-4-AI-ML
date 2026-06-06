@@ -1,0 +1,47 @@
+{
+    "DESIGN_NAME": "bnn_top",
+
+    "VERILOG_FILES": [
+        "dir::top_sram256.sv",
+        "dir::../rtl/compute_core.sv",
+        "dir::../rtl/interface.sv",
+        "dir::../rtl/sky130_sram_1kbyte_1rw1r_32x256_8_stub.v"
+    ],
+
+    "CLOCK_PORT": "clk",
+    "CLOCK_PERIOD": 50.0,
+    "PDK": "sky130A",
+    "STD_CELL_LIBRARY": "sky130_fd_sc_hd",
+    "SYNTH_STRATEGY": "AREA 0",
+
+    "EXTRA_LEFS": [
+        "/root/.volare/volare/sky130/versions/0fe599b2afb6708d281543108caf8310912f54af/sky130A/libs.ref/sky130_sram_macros/lef/sky130_sram_1kbyte_1rw1r_32x256_8.lef"
+    ],
+    "EXTRA_LIBS": [
+        "/root/.volare/volare/sky130/versions/0fe599b2afb6708d281543108caf8310912f54af/sky130A/libs.ref/sky130_sram_macros/lib/sky130_sram_1kbyte_1rw1r_32x256_8_TT_1p8V_25C.lib"
+    ],
+    "EXTRA_GDS_FILES": [
+        "/root/.volare/volare/sky130/versions/0fe599b2afb6708d281543108caf8310912f54af/sky130A/libs.ref/sky130_sram_macros/gds/sky130_sram_1kbyte_1rw1r_32x256_8.gds"
+    ],
+
+    "_comment_layers": "No RT_MIN_LAYER — SRAM macro csb0 pin is on li1/met1, forcing the router to write lower-layer guides for nets that reach those pins regardless of min-layer setting (DRT-0155). Instead use GRT_LAYER_ADJUSTMENTS to heavily discourage (not ban) met1/met2, letting the router use them only where needed for macro pin access.",
+    "GRT_LAYER_ADJUSTMENTS": [1.0, 0.99, 0.99, 0, 0, 0],
+    "GRT_MACRO_EXTENSION": 4,
+    "GRT_ALLOW_CONGESTION": true,
+    "GRT_ANTENNA_ITERS": 0,
+
+    "_comment_pdn": "Connect SRAM macro vccd1/vssd1 pins to top-level power grid. Without this PDN-0189 warnings fire and LVS fails.",
+    "PDN_MACRO_CONNECTIONS": [
+        ".*u_bank vccd1 vssd1 vccd1 vssd1"
+    ],
+
+    "MACRO_PLACEMENT_CFG": "dir::macro_placement.cfg",
+
+    "_comment_floorplan": "5000x5000 die. 16 macros in 2 rows of 8 occupy ~4050x1000 µm in lower region. Compute logic placed above y=1100.",
+    "FP_SIZING": "absolute",
+    "DIE_AREA": "0 0 5000 5000",
+    "CORE_AREA": "20 20 4980 4980",
+
+    "PL_TARGET_DENSITY_PCT": 35,
+    "PL_RESIZER_HOLD_MAX_BUFFER_PERCENT": 50
+}

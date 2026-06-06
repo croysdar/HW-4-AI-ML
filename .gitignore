@@ -76,6 +76,23 @@ project/m3/synth/compute_core_pipelined_netlist.v
 
 # Iverilog compiled simulation binaries (reproducible from source)
 project/m*/sim/tb_top
+project/m4/sim/tb_top_check
+
+# SRAM experiment OpenLane run artifacts
+project/m4/sram_*/cosim_run.vcd
+project/m4/sram_experiment/runs/
+project/m4/sram_256_experiment/runs/
+project/m4/sram_1macro_experiment/runs/
+project/m4/sram_8macro_experiment/runs/
+
+# Hardware inference co-sim scratch files (regenerated each run)
+project/m4/sram_1macro_experiment/hw_inference_run/
+project/m4/sram_1macro_experiment/hw_inference.vvp
+project/m4/sram_1macro_experiment/sim/
+
+# Live OpenLane progress logs (raw stdout, not for commit)
+project/m4/sram_*/live_progress*.log
+project/m4/synth/live_progress*.log
 
 # Large raw stdout dumps from OpenLane runs (narrative log is in openlane_run.log)
 project/m*/synth/openlane_*stage_run.log

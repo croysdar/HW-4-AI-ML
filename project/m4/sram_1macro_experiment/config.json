@@ -1,0 +1,51 @@
+{
+    "DESIGN_NAME": "bnn_top",
+
+    "VERILOG_FILES": [
+        "dir::top_sram1macro.sv",
+        "dir::compute_core_narrow.sv",
+        "dir::../rtl/interface.sv",
+        "dir::../rtl/sky130_sram_1kbyte_1rw1r_32x256_8_stub.v"
+    ],
+
+    "CLOCK_PORT": "clk",
+    "CLOCK_PERIOD": 50.0,
+    "PDK": "sky130A",
+    "STD_CELL_LIBRARY": "sky130_fd_sc_hd",
+    "SYNTH_STRATEGY": "AREA 0",
+
+    "_comment_macros": "Single SRAM macro. Volare cache paths inside Docker container.",
+    "EXTRA_LEFS": [
+        "/root/.volare/volare/sky130/versions/0fe599b2afb6708d281543108caf8310912f54af/sky130A/libs.ref/sky130_sram_macros/lef/sky130_sram_1kbyte_1rw1r_32x256_8.lef"
+    ],
+    "EXTRA_LIBS": [
+        "/root/.volare/volare/sky130/versions/0fe599b2afb6708d281543108caf8310912f54af/sky130A/libs.ref/sky130_sram_macros/lib/sky130_sram_1kbyte_1rw1r_32x256_8_TT_1p8V_25C.lib"
+    ],
+    "EXTRA_GDS_FILES": [
+        "/root/.volare/volare/sky130/versions/0fe599b2afb6708d281543108caf8310912f54af/sky130A/libs.ref/sky130_sram_macros/gds/sky130_sram_1kbyte_1rw1r_32x256_8.gds"
+    ],
+
+    "PDN_MACRO_CONNECTIONS": [
+        "u_bank vccd1 vssd1 vccd1 vssd1"
+    ],
+
+    "MACRO_PLACEMENT_CFG": "dir::macro_placement.cfg",
+
+    "_comment_floorplan": "2000x2000 µm die. One 480x398 µm macro in the lower-left corner; rest is open compute area. Plenty of routing headroom; trivially low congestion expected.",
+    "FP_SIZING": "absolute",
+    "DIE_AREA": "0 0 2000 2000",
+    "CORE_AREA": "20 20 1980 1980",
+
+    "PL_TARGET_DENSITY_PCT": 25,
+    "PL_RESIZER_HOLD_MAX_BUFFER_PERCENT": 50,
+
+    "_comment_sta": "Limit STA to the nominal corner only — multi-corner STA exhausted RAM in the 16-macro run (SIGKILL after 7h). Single-corner closure is sufficient for the M4 deliverable.",
+    "STA_CORNERS": ["nom_tt_025C_1v80"],
+
+    "_comment_signoff": "Magic DRC disabled: Magic crashes reading sky130 SRAM GDS (unknown layer/datatype for openram_dp_cell* subcells — known sky130+Magic incompatibility). Routing DRC clean (0 errors after macro moved to y=200). KLayout XOR passes. LVS runs via netgen, unaffected.",
+    "RUN_MAGIC_DRC": false,
+
+    "_comment_pdn_halo": "Keep PDN straps 10 µm away from macro edges to avoid met4 short/spacing violations at macro boundary.",
+    "FP_PDN_HORIZONTAL_HALO": 10,
+    "FP_PDN_VERTICAL_HALO": 10
+}
