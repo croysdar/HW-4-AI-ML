@@ -9,11 +9,18 @@ ECE 510 Spring 2026 | Rebecca Gilbert-Croysdale
 | Config | Platform | Clock | Weight Memory | Status |
 |--------|----------|-------|---------------|--------|
 | **SW Baseline** | Apple M1 CPU (float32 PyTorch) | N/A | N/A | Done (M1) |
-| **HW WD=64** | Sky130A HD, OpenLane 2.3.10 | 100 MHz | 64×256-bit reg file | 78/78 PASS |
-| **HW WD=64 @ 20 MHz** | Sky130A HD | 20 MHz | 64×256-bit reg file | Estimated |
-| **HW SRAM-256** | Sky130A HD | 20 MHz | 16× 32x256 SRAM macros | In progress |
+| **Reg-file (WD=64)** | Sky130A HD, OpenLane 2.3.10 | 100 MHz | 64×256-bit reg file | P&R PASS |
+| **1-SRAM macro** | Sky130A HD | 20 MHz | 1× sky130_sram_1kbyte_1rw1r_32x256_8 | P&R PASS |
+| **4-SRAM macro** | Sky130A HD | 40 MHz | 4× sky130_sram_1kbyte_1rw1r_32x256_8 | RTL sim done; P&R pending |
+| **8-SRAM macro** | Sky130A HD | 40 MHz | 8× sky130_sram_1kbyte_1rw1r_32x256_8 | P&R PASS (DRC bypassed) |
 
 Raw numbers: [benchmark_data.csv](benchmark_data.csv)
+
+Note on binary operations: the accelerator performs XNOR+popcount (1-bit equivalent MACs),
+not float32 MACs. The M1 baseline runs the same BNN network in PyTorch but emulates
+binary operations via float32 tensors — this is why the M1 appears slow relative to
+its peak FLOP/s. The comparison is valid for the target task (BNN inference), but
+FLOP/s numbers are architectural equivalents, not standard IEEE floating-point metrics.
 
 ---
 
@@ -25,110 +32,156 @@ Raw numbers: [benchmark_data.csv](benchmark_data.csv)
 |--------|-------|
 | Mean latency (single image) | 12.19 ms |
 | Throughput | 82.0 images/sec |
-| Attained compute | ~83 GFLOP/s |
-| Compute utilization vs. peak | ~3.2% (memory-bound) |
+| Attained compute | ~83 GFLOP/s (float32 equivalent) |
+| Binary layers (conv2–4) fraction | ~71% of runtime |
 
-The software baseline is bottlenecked by DRAM bandwidth (AI = 12.34 FLOP/byte on
-the binary layers), not compute. The CPU runs at ~3% of its peak theoretical
-throughput because data arrives from DRAM slower than the ALUs can consume it.
+### Hardware Configurations
 
-### Hardware (WD=64, 100 MHz)
+The full BNN model (bnn_serengeti2) processes layers conv2–4 on the accelerator.
+Per-layer tile counts: conv2 = 12,544 spatial × 64 channels = **802,816 tiles**,
+conv3 = 3,136 × 128 = **401,408 tiles**, conv4 = 784 × 256 = **200,704 tiles**.
+Total: **1,404,928 tiles**.
 
-The BNN accelerator processes one 256-bit activation×weight beat per clock cycle
-in steady state. At 100 MHz:
+#### Reg-file baseline (WD=64, 100 MHz)
 
-| Layer | Beats per tile | Tiles per frame | Cycles |
-|-------|----------------|-----------------|--------|
-| conv2 | 5 | ~128 | ~640 |
-| conv3 | 5 | ~384 | ~1,920 |
-| conv4 | 5 | ~640 | ~3,200 |
-| **Total** | | ~1,152 | **~5,760** |
+Parallel 256-bit weight reads from the register file; no serialization overhead.
+Per-tile cycles ≈ n_beats + 3 (drain). Full-frame estimate:
 
-5,760 cycles ÷ 100 MHz = **57.6 µs per frame** → sustained >**17,000 FPS** on the
-binary layers alone. The practical ceiling is 30 FPS (host-side conv1 + AXI overhead).
+| Layer | Beats/tile | Est. cycles/tile | Tiles | Est. cycles |
+|-------|------------|------------------|-------|-------------|
+| conv2 | 2 | ~5 | 802,816 | ~4.0M |
+| conv3 | 3 | ~6 | 401,408 | ~2.4M |
+| conv4 | 5 | ~8 | 200,704 | ~1.6M |
+| **Total** | | | 1,404,928 | **~8.0M** |
 
-Attained compute: 505,774,786 MACs × 2 / 57.6 µs = **~17.6 TFLOP/s** equivalent
-(treating XNOR+popcount as 1-bit MACs). Note: FLOP equivalence is architectural,
-not standard IEEE GFLOP — binary ops are fundamentally different from float32.
+At 100 MHz: ~8.0M × 10 ns = **~80 ms → ~12.5 FPS** (analytical estimate; not simulated).
 
-### Hardware vs. Software Speedup
+#### 1-SRAM macro (20 MHz)
 
-| Metric | SW Baseline | HW (WD=64) | Speedup |
-|--------|-------------|------------|---------|
-| Latency (binary layers) | 12.19 ms (full model) | 57.6 µs | >200× (on binary layers) |
-| Throughput | 82 FPS | >17,000 FPS (binary) | >200× |
+32-bit SRAM reads with 8 serial chunks per beat. Per-tile cycles = n_beats×8 + 7.
+Confirmed by simulation (`sram_1macro_experiment/sim/tb_timing.sv`):
 
-The >200× speedup is specifically on the binary conv2–4 layers handled by the
-accelerator. The full-model speedup depends on conv1 (INT8, runs on host CPU)
-and is expected at ~5–10× system-level.
+| Layer | Beats/tile | Cycles/tile | Tiles | Cycles |
+|-------|------------|-------------|-------|--------|
+| conv2 | 2 | **23** | 802,816 | 18,464,768 |
+| conv3 | 3 | **31** | 401,408 | 12,443,648 |
+| conv4 | 5 | **47** | 200,704 | 9,433,088 |
+| **Total** | | | 1,404,928 | **40,341,504** |
+
+At 20 MHz (50 ns/cycle): 40,341,504 × 50 ns = **2,017 ms → 0.50 FPS**
+
+#### 4-SRAM macro (40 MHz)
+
+2-phase SRAM reads: each 256-bit weight requires 2 cycles (phase 0 = lower 128 bits, phase 1 = upper 128 bits).
+AXI stalls 1 cycle per beat during phase 1. Per-tile cycles = 2×n_beats + 6.
+**Confirmed by iverilog simulation** (`sram_4macro_experiment/sim/tb_timing_4macro.sv`):
+
+| Layer | Beats/tile | Cycles/tile | Tiles | Cycles |
+|-------|------------|-------------|-------|--------|
+| conv2 | 2 | **10** | 802,816 | 8,028,160 |
+| conv3 | 3 | **12** | 401,408 | 4,816,896 |
+| conv4 | 5 | **16** | 200,704 | 3,211,264 |
+| **Total** | | | 1,404,928 | **16,056,320** |
+
+At 40 MHz (25 ns/cycle): 16,056,320 × 25 ns = **401 ms → 2.5 FPS**
+
+Power and area pending P&R.
+
+#### 8-SRAM macro (40 MHz)
+
+Parallel 256-bit SRAM reads (8 banks, 1 cycle). Per-tile cycles = n_beats + 6.
+**Confirmed by iverilog simulation** (`sram_8macro_experiment/sim/timing_sim.log`):
+
+| Layer | Beats/tile | Cycles/tile | Tiles | Cycles |
+|-------|------------|-------------|-------|--------|
+| conv2 | 2 | **8** | 802,816 | 6,422,528 |
+| conv3 | 3 | **9** | 401,408 | 3,612,672 |
+| conv4 | 5 | **11** | 200,704 | 2,207,744 |
+| **Total** | | | 1,404,928 | **12,242,944** |
+
+At 40 MHz (25 ns/cycle): 12,242,944 × 25 ns = **306.1 ms → 3.3 FPS**
+
+### Hardware vs. Software Summary
+
+| Metric | SW Baseline (M1) | 1-macro HW | 4-macro HW | 8-macro HW |
+|--------|-----------------|------------|------------|------------|
+| Frame time (BNN layers) | 12.19 ms | 2,017 ms | 401 ms | 306 ms |
+| Throughput | 82 FPS | 0.50 FPS | 2.5 FPS | 3.3 FPS |
+| Speedup (frame time) | 1× | 0.006× (slower) | 0.03× (slower) | 0.04× (slower) |
+
+The hardware is slower than the M1 CPU for these layers. The M1 achieves high
+throughput through vectorized PyTorch operations, SIMD acceleration, batched
+execution, and cache warmth — none of which apply to the serial tile-by-tile
+hardware execution without pipelining across tiles. The hardware advantage is
+**energy efficiency**, not raw throughput.
+
+**Why hardware is slower:** The per-tile sequential execution (send beats, wait
+for drain, repeat) means only one tile is in flight at a time. Pipelining the
+drain across tiles — starting the next tile's beats while the current tile's
+drain cycles run — would reduce effective cycles/tile from `n_beats + 6` to
+approximately `max(n_beats, 6)`. For conv2 (2 beats), this improvement would
+be 8 → 6 cycles; for conv4 (5 beats), 11 → 6 cycles. Full pipelining is
+identified as the primary path to ≥30 FPS.
 
 ---
 
 ## 3. Power
 
-### Measured (WD=64, 100 MHz, TT 25°C 1.8V)
+| Config | Power | Source |
+|--------|-------|--------|
+| SW Baseline (M1 SoC) | ~10,000 mW (estimated) | Published review (Anandtech 2020) |
+| Reg-file (WD=64, 100 MHz) | 215.3 mW | `synth/power_report.txt` |
+| 1-SRAM macro (20 MHz) | **2.91 mW** | `sram_1macro_experiment/` post-route |
+| 8-SRAM macro (40 MHz) | **17.78 mW** | `sram_8macro_experiment/` post-route |
 
-| Group | Power | % |
-|-------|-------|---|
-| Sequential (FFs) | 90.3 mW | 41.9% |
-| Combinational | 64.4 mW | 29.9% |
-| Clock | 60.7 mW | 28.2% |
-| **Total** | **215.3 mW** | |
+All hardware power figures: OpenSTA post-route, nominal corner (TT 25°C 1.8V).
 
-Power is dominated by the 16,384 flip-flops in the register-file weight memory
-switching at nominal activity. At 100 MHz with full-rate clocking, the FF array
-and its clock distribution consume ~70% of total power.
+### 1-SRAM Power Breakdown
 
-### At 20 MHz (clock-frequency optimization)
+| Component | Power | Share |
+|-----------|-------|-------|
+| Sequential (947 FFs) | 0.82 mW | 28% |
+| Clock distribution | 1.02 mW | 35% |
+| SRAM macro | 0.79 mW | 27% |
+| Combinational | 0.29 mW | 10% |
+| **Total** | **2.91 mW** | |
 
-Dynamic power scales approximately linearly with frequency. At 20 MHz:
+### 8-SRAM Power Breakdown
 
-- Switching power: 55.4 mW × (20/100) = ~11.1 mW
-- Clock network: 60.7 mW × (20/100) = ~12.1 mW
-- Internal (static-dominated): ~160 mW × correction factor
-
-A re-synthesis at 20 MHz would also select smaller/slower cells, further reducing
-cell area and static power. Estimated total at 20 MHz: **~43 mW** (5× reduction
-on switching-dominated components, with cell downsizing reducing internal power too).
-
-### With SRAM Macros (projected, 20 MHz)
-
-| Component | Power |
-|-----------|-------|
-| 16× SRAM macros (32x256, 1 access/cycle) | ~8 mW total |
-| Compute + interfaces (20 MHz) | ~10–15 mW |
-| Clock distribution | ~5 mW |
-| **Estimated total** | **~25–30 mW** |
-
-SRAM macros dissipate energy only during active read/write; standby leakage is
-~µW per macro. This is the primary motivation for the SRAM integration experiment.
-
-### Power vs. Target
-
-| Metric | Target | WD=64 (100 MHz) | WD=64 (20 MHz est.) | SRAM (projected) |
-|--------|--------|-----------------|---------------------|------------------|
-| Total power | <200 mW | 215.3 mW | ~43 mW | ~25–30 mW |
-| Vs. target | — | 8% over | 79% under | 85% under |
+| Component | Power | Share |
+|-----------|-------|-------|
+| Internal (macros + logic) | 15.53 mW | 87% |
+| Switching | 2.10 mW | 12% |
+| Leakage | 0.15 mW | 1% |
+| **Total** | **17.78 mW** | |
 
 ---
 
-## 4. Area
+## 4. Energy per Frame
 
-| Stage | Cells | Cell Area | Die Area | Utilization |
-|-------|-------|-----------|----------|-------------|
-| Pre-P&R (synthesis) | 46,774 | 718,169 µm² | — | — |
-| Post-route (with CTS) | — | 1,043,990 µm² | 2,560,000 µm² | **40.8%** |
+| Config | Power | Frame time | Energy/frame |
+|--------|-------|-----------|--------------|
+| M1 CPU (estimated) | ~10,000 mW | 12.19 ms | ~122,000 µJ |
+| 1-macro HW | 2.91 mW | 2,017 ms | 5,869 µJ |
+| 4-macro HW | 12.007 mW | 401 ms | **4,817 µJ** |
+| 8-macro HW | 17.78 mW | 306.1 ms | **5,442 µJ** |
 
-The post-route area overhead (1.044 mm² vs. 0.718 mm² synthesis) comes from:
-- Clock tree synthesis (CTS) buffers: +~190,000 µm²
-- Hold-fix buffers added by OpenROAD resizer: +~136,000 µm²
-
-Register-file breakdown: ~16,384 `sky130_fd_sc_hd__dfxtp_2` flip-flops × ~27.7 µm²
-each ≈ 453,000 µm² (63% of synthesis area; 43% of post-route area).
+**~22× better energy/frame** than M1 despite lower throughput, because the hardware
+draws ~3,500× less power and runs only the binary layers (not full model).
 
 ---
 
-## 5. Roofline Analysis
+## 5. Area
+
+| Config | Std-cell area | Die area | Utilization |
+|--------|---------------|----------|-------------|
+| Reg-file (WD=64) | 1,044,000 µm² | 2.56 mm² | 40.8% |
+| 1-SRAM macro | 306,714 µm² | 4.0 mm² | 3.2% |
+| 8-SRAM macro | 124,129 µm² (stdcell) + 1,525,700 µm² (macros) | 5.76 mm² | ~28.6% |
+
+---
+
+## 6. Roofline Analysis
 
 See [figures/roofline_final.png](figures/roofline_final.png) for the annotated plot.
 
@@ -137,77 +190,53 @@ See [figures/roofline_final.png](figures/roofline_final.png) for the annotated p
 | System | Arithmetic Intensity (FLOP/byte) | Attained Performance | Region |
 |--------|----------------------------------|---------------------|--------|
 | Apple M1 CPU (full model) | ~12.3 FLOP/byte | ~83 GFLOP/s | Memory-bound |
-| BNN chiplet (100 MHz, WD=64) | ~379 FLOP/byte | ~17.6 TFLOP/s equiv. | Compute-bound |
+| BNN chiplet (40 MHz, 8-macro) | ~379 FLOP/byte | ~2.0 TOPS equiv. | Compute-bound |
 
 **Arithmetic intensity calculation (hardware):**
-- AXI payload per frame (activations only): ~1.6 MB (32×224×224 bytes)
-- Operations per frame: ~606 GFLOP (Conv2–4 XNOR-popcount equivalent)
-- AI = 606 GFLOP / 1.6 MB = **379 FLOP/byte**
+- AXI payload per frame (activations only): ~1.6 MB
+- Operations per frame: ~606 GOp (Conv2–4 XNOR-popcount equivalent)
+- AI = 606 / 1.6 ≈ **379 FLOP/byte**
 
-At 379 FLOP/byte, the hardware design is firmly compute-bound: the AXI bus delivers
-data faster than the XNOR+popcount units consume it. This is the correct operating
-regime for a streaming binary neural network accelerator — every byte transferred
-from the host yields 379 useful operations on-chip.
+At 379 FLOP/byte, the hardware is firmly compute-bound on the hardware roofline.
+The activation-streaming dataflow (weights on-chip, activations streaming in)
+is what raises arithmetic intensity from 12.3 to 379 — the AXI bus carries only
+activation data, making the effective AI much higher than the instruction-level AI
+of a pure DRAM-based implementation.
 
-**Ridge point (hardware):**
-- Peak compute: 256 XNOR/cycle × 100 MHz = 25.6 GXNOR/s ≈ 25.6 TOPS
-- AXI bandwidth (theoretical): 256 bits / 100 MHz × 100 MHz = 3.2 GB/s
-- Ridge = 25,600 GFLOP/s / 3,200 MB/s = **8,000 FLOP/byte**
-
-The design at AI=379 is in the bandwidth-bound region of the hardware roofline —
-meaning it processes data faster than the AXI interface can supply it. This is
-intentional: the weight-stationary dataflow means the AXI bus only carries activations,
-not weights (which stay on-chip), making the effective AI much higher than the
-instruction-level AI.
-
----
-
-## 6. Roofline Plot Notes
-
-The roofline figure ([figures/roofline_final.png](figures/roofline_final.png)) shows:
-
-- **X-axis:** Arithmetic intensity (FLOP/byte), log scale 1–10,000
-- **Y-axis:** Attained performance (GFLOP/s), log scale 1–100,000
-- **Memory roof:** Slope = AXI bandwidth limit (3.2 GB/s at 100 MHz)
-- **Compute roof:** Horizontal = peak XNOR throughput (25,600 GFLOP/s equiv.)
-- **SW point:** M1 CPU at (12.3, 83) — memory-bound, left of ridge
-- **HW point:** BNN chiplet at (379, 17,600) — in right portion, near compute roof
-
-The 30× improvement in arithmetic intensity (12.3 → 379 FLOP/byte) is what makes
-the custom hardware worthwhile. It restructures the compute/memory balance so that
-the accelerator stays compute-bound even at high throughput.
+**Attained performance at 3.3 FPS:**
+3.3 FPS × 606 GOp/frame = **~2,000 GOPS** (XNOR equivalent)
 
 ---
 
 ## 7. Design Efficiency
 
-### Compute Density
+### Cross-Configuration Comparison
 
-| Metric | Value |
-|--------|-------|
-| Peak XNOR throughput | 25.6 GXNOR/s |
-| Core area (compute + interfaces only) | ~0.27 mm² |
-| Compute density | ~94.8 GXNOR/s/mm² |
+| Metric | 1-macro | 4-macro | 8-macro |
+|--------|---------|---------|---------|
+| Clock | 20 MHz | 40 MHz | 40 MHz |
+| Cycles/frame | 40,341,504 | 16,056,320 | 12,242,944 |
+| Frame time | 2,017 ms | 401 ms | 306 ms |
+| **Throughput** | **0.50 FPS** | **2.5 FPS** | **3.3 FPS** |
+| Power | 2.91 mW | **12.007 mW** | 17.78 mW |
+| Energy/frame | 5,869 µJ | **4,817 µJ** | 5,442 µJ |
+| Die area | 4.0 mm² | 4.32 mm² | 5.76 mm² |
+| Routing DRC | 0 | 5 (bypassed) | 12 (bypassed) |
+| KLayout DRC | 0 | **0** | 8 (bypassed) |
+| LVS errors | 0 | 7 (bypassed) | 15 (bypassed) |
 
-### Energy Efficiency (WD=64, 100 MHz)
+The 4-macro design sits between 1-macro and 8-macro: 5× faster than 1-macro at the same
+40 MHz clock, 1.3× slower than 8-macro with cleaner DRC (KLayout 0 vs 8, routing 5 vs 12).
+The 2-phase SRAM read (1 stall cycle per beat) reduces effective throughput vs 8-macro:
+cycles/tile = 2×n_beats + 6 vs n_beats + 6 for 8-macro.
 
-| Metric | Value |
-|--------|-------|
-| Total power | 215.3 mW |
-| Throughput (binary layers) | 17,600 FPS |
-| Energy per frame | ~12.2 µJ/frame |
-| Vs. M1 CPU (~2W for binary layers) | ~164× more efficient |
-
-At 20 MHz with SRAM (target configuration):
-
-| Metric | Projected |
-|--------|-----------|
-| Total power | ~25–30 mW |
-| Throughput | >3,000 FPS (binary layers) |
-| Energy per frame | ~8–10 µJ/frame |
-| Vs. M1 CPU | ~200–250× more efficient |
+The 8-macro design achieves 6.6× throughput improvement vs 1-macro at 6.1× more power —
+energy/frame is approximately equal. The throughput improvement is 6.6× (not 16× as
+8× SRAM banks × 2× clock would suggest) because the fixed 6-cycle drain overhead per
+tile is not reduced by the memory bandwidth increase.
 
 ---
 
-*Data sources: synth/power_report.txt, synth/area_report.txt, synth/timing_report.txt,
-project/m1/sw_baseline.md, project/design_decisions/q02_roofline_motivation.md*
+*Data sources: `synth/power_report.txt`, `synth/area_report.txt`, `synth/timing_report.txt`,
+`sram_1macro_experiment/` P&R reports, `sram_8macro_experiment/sim/timing_sim.log`,
+`project/m1/sw_baseline.md`*

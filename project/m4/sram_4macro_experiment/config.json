@@ -2,7 +2,7 @@
     "DESIGN_NAME": "bnn_top",
 
     "VERILOG_FILES": [
-        "dir::top_sram8macro.sv",
+        "dir::top_sram4macro.sv",
         "dir::../rtl/compute_core.sv",
         "dir::../rtl/interface.sv",
         "dir::../rtl/sky130_sram_1kbyte_1rw1r_32x256_8_stub.v"
@@ -14,7 +14,7 @@
     "STD_CELL_LIBRARY": "sky130_fd_sc_hd",
     "SYNTH_STRATEGY": "AREA 0",
 
-    "_comment_macros": "8 × sky130_sram_1kbyte_1rw1r_32x256_8 in parallel — 256-bit weight reads.",
+    "_comment_macros": "4 × sky130_sram_1kbyte_1rw1r_32x256_8 with 2-phase reads → 256-bit weights. Single row eliminates inter-row PDN stripe DRC.",
     "EXTRA_LEFS": [
         "/root/.volare/volare/sky130/versions/0fe599b2afb6708d281543108caf8310912f54af/sky130A/libs.ref/sky130_sram_macros/lef/sky130_sram_1kbyte_1rw1r_32x256_8.lef"
     ],
@@ -31,22 +31,22 @@
 
     "MACRO_PLACEMENT_CFG": "dir::macro_placement.cfg",
 
-    "_comment_floorplan": "2400x2400 µm die. 8 macros in 2 rows × 4 cols. Bottom row y=200, top row y=650. Columns at x=100/590/1080/1570. Each macro 479.78×397.5 µm. Compute logic fills upper 1000 µm.",
+    "_comment_floorplan": "2400x1800 µm die (narrower than 8-macro — only 1 row of SRAMs). 4 macros in single row at y=200. Columns at x=100/650/1200/1750. Each macro 479.78×397.5 µm. Compute logic fills upper ~1200 µm.",
     "FP_SIZING": "absolute",
-    "DIE_AREA": "0 0 2400 2400",
-    "CORE_AREA": "20 20 2380 2380",
+    "DIE_AREA": "0 0 2400 1800",
+    "CORE_AREA": "20 20 2380 1780",
 
-    "PL_TARGET_DENSITY_PCT": 15,
+    "PL_TARGET_DENSITY_PCT": 20,
     "PL_RESIZER_HOLD_MAX_BUFFER_PERCENT": 50,
 
-    "_comment_routing": "Routing/KLayout DRC errors at SRAM macro edges (met3/met4 spacing, met4 stub width) are expected for sky130 SRAM macro integration and do not affect functional correctness.",
+    "_comment_routing": "Single-row macro placement expected to eliminate inter-row PDN stripe DRC. Edge DRC at SRAM macro boundaries (met3/met4 spacing) may still occur — these are expected for sky130 SRAM macro integration.",
     "ERROR_ON_TR_DRC": false,
     "ERROR_ON_KLAYOUT_DRC": false,
 
-    "_comment_sta": "Single-corner STA to avoid OOM (multi-corner exhausted RAM in prior experiments).",
+    "_comment_sta": "Single-corner STA to avoid OOM.",
     "STA_CORNERS": ["nom_tt_025C_1v80"],
 
-    "_comment_signoff": "Magic DRC disabled: Magic crashes on sky130 SRAM GDS (openram_dp_cell* unknown layer — known incompatibility). LVS errors allowed: SRAM macro power pins (vccd1/vssd1) appear in extracted layout but not in gate-level netlist — standard black-box mismatch, not a functional error.",
+    "_comment_signoff": "Magic DRC disabled: Magic crashes on sky130 SRAM GDS (openram_dp_cell* unknown layer — known incompatibility). LVS errors allowed: SRAM macro power pins appear in extracted layout but not in gate-level netlist — standard black-box mismatch.",
     "RUN_MAGIC_DRC": false,
     "QUIT_ON_LVS_ERROR": false,
 

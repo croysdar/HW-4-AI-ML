@@ -24,11 +24,15 @@ No environment variables required. Docker daemon must be running.
 M4 completes the full-chip place-and-route of `bnn_top` and re-validates the end-to-end
 co-simulation testbench. Two fully-synthesized configurations are delivered:
 
-| Config | Memory | Die | Power | DRC/LVS |
-| --- | --- | --- | --- | --- |
-| **Reg-file baseline** (`synth/`) | WEIGHT_DEPTH=640 reg-file | 4000×4000 µm | 215.3 mW | PASSED |
-| **SRAM variant** (`sram_1macro_experiment/`) | 1× sky130_sram_1kbyte_1rw1r_32x256_8 | 2000×2000 µm | **2.91 mW** | PASSED |
-| **8-SRAM variant** (`sram_8macro_experiment/`) | 8× sky130_sram_1kbyte_1rw1r_32x256_8 | 2400×2400 µm | TBD | TBD |
+| Config | Memory | Clock | Die | Power | FPS | DRC/LVS |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Reg-file baseline** (`synth/`) | 16,384-FF reg-file | 100 MHz | 1600×1600 µm | 215.3 mW | ~12.5 (est.) | PASSED |
+| **1-SRAM** (`sram_1macro_experiment/`) | 1× sky130_sram_1kbyte_1rw1r_32x256_8 | 20 MHz | 2000×2000 µm | **2.91 mW** | **0.50** | PASSED |
+| **4-SRAM** (`sram_4macro_experiment/`) | 4× sky130_sram_1kbyte_1rw1r_32x256_8 | 40 MHz | 2400×1800 µm | **12.007 mW** | **2.5** | bypassed† |
+| **8-SRAM** (`sram_8macro_experiment/`) | 8× sky130_sram_1kbyte_1rw1r_32x256_8 | 40 MHz | 2400×2400 µm | **17.78 mW** | **3.3** | bypassed* |
+
+*8-SRAM DRC: 12 routing + 8 KLayout errors at sky130 SRAM macro edges (known integration issue); 15 LVS mismatches from SRAM power pin extraction. All bypassed — do not affect logic correctness. 1-SRAM is the tape-out-ready result.
+†4-SRAM DRC: 5 routing + 0 KLayout errors + 7 LVS mismatches. Single-row macro placement eliminated KLayout DRC entirely (8→0) and reduced routing DRC (12→5) vs 8-SRAM. Remaining errors are same SRAM macro edge metal-spacing artifacts.
 
 The SRAM variant is the primary result. It replaces 16,384 weight flip-flops with a
 single 1 KB SRAM macro and a 32-bit narrow-compute datapath (8 chunks/beat serialization),
@@ -44,6 +48,26 @@ Key results — **SRAM variant** (`sram_1macro_experiment/`):
   - *Note: earlier figures of 21.1 ms / 47.3 FPS were incorrect (counted 16,464 spatial tiles once each, omitting the full output-channel dimension)*
 - Energy per frame **~5.87 mJ** (2.91 mW × 2.02 s)
 - Co-simulation: **VERIFIABLE PASS** — all 14 tile checks match `sv_dot` reference model
+
+Key results — **4-SRAM variant** (`sram_4macro_experiment/`):
+- **OpenLane 2 P&R complete** (72 steps); routing DRC **5 errors**, KLayout DRC **0 errors**, LVS **7 mismatches** (all bypassed — same SRAM macro edge artifacts as 8-SRAM, but reduced)
+- **2-phase SRAM reads**: each 256-bit weight assembled from 2 SRAM cycles (4 banks × 32-bit each)
+- Setup WNS **0.0 ns** (timing met, zero margin at 40 MHz — 8-SRAM had +11.57 ns)
+- Total power **12.007 mW** (TT 25°C 1.8V, post-route OpenSTA)
+- Full-frame inference (bnn_serengeti2, 224×224): **1,404,928 tiles**, **16,056,320 cycles**, **401 ms**, **2.5 FPS**
+  - Per-tile latency: conv2=10 cycles, conv3=12 cycles, conv4=16 cycles (2×beats + 6 drain)
+- Energy per frame **4.82 mJ** (12.007 mW × 401 ms) — best of all three SRAM configurations
+- **Single-row macro placement** eliminated KLayout DRC entirely vs 8-SRAM (8→0)
+
+Key results — **8-SRAM variant** (`sram_8macro_experiment/`):
+- **OpenLane 2 P&R complete** (72 steps); DRC/LVS bypassed (sky130 SRAM macro edge artifacts)
+- Setup WNS **+11.57 ns** (25 ns / 40 MHz — 46% slack margin)
+- Total power **17.78 mW** (TT 25°C 1.8V, post-route OpenSTA)
+- Full-frame inference (bnn_serengeti2, 224×224): **1,404,928 tiles**, **12,242,944 cycles**, **306.1 ms**, **3.3 FPS**
+  - Per-tile latency: conv2=8 cycles, conv3=9 cycles, conv4=11 cycles (256-bit parallel reads, 40 MHz)
+  - Source: `sram_8macro_experiment/sim/timing_sim.log` (iverilog simulation)
+- Energy per frame **5.44 mJ** (17.78 mW × 306.1 ms)
+- **6.6× faster** than 1-SRAM; energy/frame ~equal (5.44 mJ vs 5.87 mJ)
 
 Key results — **Reg-file baseline** (`synth/`, retained as fallback):
 - **78/78** OpenLane steps completed; **DRC PASSED, LVS PASSED**

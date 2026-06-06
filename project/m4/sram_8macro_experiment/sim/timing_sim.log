@@ -1,0 +1,16 @@
+=== Single-tile latency (back-to-back, no stall) ===
+  conv2 (2 beats): 8 cycles  =  200.0 ns  @  40 MHz
+  conv3 (3 beats): 9 cycles  =  225.0 ns  @  40 MHz
+  conv4 (5 beats): 11 cycles  =  275.0 ns  @  40 MHz
+
+=== Full-frame throughput (802816 + 401408 + 200704 = 1404928 total tiles) ===
+  conv2: 802816 tiles × 2 beats = 6422528 cycles  (160.6 ms)
+  conv3: 401408 tiles × 3 beats = 3612672 cycles  (90.3 ms)
+  conv4: 200704 tiles × 5 beats = 2207744 cycles  (55.2 ms)
+
+─────────────────────────────────────────────────────────
+  Total BNN cycles  : 12242944
+  Frame latency     : 306.07 ms  (budget: 33.3 ms @ 30 FPS)
+  Throughput        : 3.3 FPS (BNN layers only)
+  Energy/frame      : 5.442 mJ  (17.78 mW × 306.07 ms)
+─────────────────────────────────────────────────────────
