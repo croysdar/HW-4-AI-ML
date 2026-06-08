@@ -58,15 +58,17 @@ to 256 logical weight words — one batch at a time, not all weights for a layer
 once; see Section 4 for the batch-stationary dataflow). Per frame, only activations
 cross the AXI bus:
 
-- Activation bytes transferred: ~1.6 MB (256×224×224 / 8 bytes)
-- Binary operations: ~606 GOp equivalent (Conv2–4 XNOR-popcount)
-- Arithmetic intensity: 606 / 1.6 ≈ **379 FLOP/byte**
+- Activation bytes transferred: ~0.35 MB (binary-packed: 32ch×224² + 64ch×112² + 128ch×56² bits ÷ 8)
+- Binary operations: ~694 MOp (Conv2–4 XNOR-popcount, 231M ops each)
+- Arithmetic intensity: 694×10⁶ / 351,232 ≈ **~1,975 FLOP/byte**
 
-At 379 FLOP/byte the design sits **to the right** of the hardware ridge point
-(~8 FLOP/byte for a 256-bit AXI bus at 40 MHz). The hardware is compute-bound:
-the AXI bus delivers data faster than the XOR/popcount units finish processing.
+At ~1,975 FLOP/byte the design sits **well to the right** of the hardware ridge point
+(~8 FLOP/byte for a 256-bit AXI bus at 40 MHz). The hardware is strongly compute-bound:
+the AXI bus delivers activation data far faster than the XNOR-popcount engine processes it.
 This is the correct operating regime — every byte transferred from the host yields
-379 useful on-chip operations.
+nearly 2,000 useful on-chip operations. The key insight is that activations are
+binary-packed (1 bit per value), so the AXI payload is ~4.5× smaller than an INT8
+representation would require.
 
 **How the analysis shaped the architecture:** The roofline confirmed that the
 bottleneck at the target operating point is not AXI bandwidth — the interface is
@@ -185,7 +187,7 @@ the 2× multiplier on n_beats reflects the per-beat stall cycle for the 2-phase 
 The final design uses 4× `sky130_sram_1kbyte_1rw1r_32x256_8` macros in a single row,
 performing 2-phase 128-bit reads at 40 MHz to assemble each 256-bit weight word. This
 configuration was selected from three SRAM variants and a register-file baseline by
-balancing energy per frame (4.82 mJ — best of all configs), throughput (2.5 FPS —
+balancing energy per frame (4.62 mJ — best of all configs), throughput (2.5 FPS —
 better than 1-macro's 0.50 FPS), and physical cleanliness (0 KLayout DRC errors —
 better than 8-macro's 8 errors). Full synthesis results for all configurations are in Section 7.
 
@@ -230,16 +232,16 @@ Correctness was verified at three levels:
 ### Unit Tests (M2 testbench, `tb/tb_top.sv`)
 
 The M2 testbench (`project/m2/`) exercised individual AXI4-Stream transactions with
-known weight/activation patterns and compared the hardware dot-product result to a
-Python-computed `sv_dot` reference. All tile computations were bit-exact matches.
+pseudo-random weight and activation vectors (`$urandom`) and compared the hardware
+dot-product result to a `$countones`-based reference computed in the testbench itself.
+All tile computations were bit-exact matches.
 
 ### M3 Co-simulation
 
-The M3 co-simulation (`project/m3/`, `project/m4/sim/final_run.log`) runs full
-end-to-end BNN inference: the Python driver (`run_cosim.py`) loads real trained
-weights from the `bnn_serengeti2` checkpoint, generates activation beats from the
-test set, and streams them to the RTL via a compiled `iverilog`+`vvp` simulation.
-The hardware output is compared tile-by-tile to PyTorch's integer-quantized reference.
+The M3 co-simulation (`project/m4/sim/final_run.log`) drives the RTL with synthetic
+weight and activation patterns of known values (e.g., all-ones) via a compiled
+`iverilog`+`vvp` simulation. The hardware dot-product output is compared tile-by-tile
+to a Python-computed reference (`sv_dot`) using the same integer arithmetic.
 
 **Result:** `sim/final_run.log` shows **VERIFIABLE PASS** — all 18 tile checks across
 5 test phases pass. Zero mismatches. The hardware and software produce identical
@@ -247,15 +249,13 @@ signed 32-bit dot-product values.
 
 ### Hardware Inference Co-Simulation (M4)
 
-The 8-macro design includes a separate co-simulation testbench
-(`sram_8macro_experiment/sim/tb_hw_inference_8macro.sv`) driven by
-`run_hw_inference_8macro.py`. This follows the same stimulus/reference methodology
-as M3, adapted for the 8-macro write protocol (8 consecutive `w_en` pulses at the
-same `w_addr`, with internal `w_bank_sel` routing chunks to banks 0–7).
-
-The SRAM depth change (WEIGHT_DEPTH=256 vs. 32 for 1-macro) means 256 logical weight
-words fit in one batch — larger than the largest layer's `filters_per_batch` (85 for
-conv3), so the 8-macro design never needs a mid-layer reload for conv2 or conv3.
+The 4-macro final design includes its own co-simulation testbench
+(`sram_4macro_experiment/sim/tb_top_4sram.sv`). This uses the same stimulus/reference
+methodology — synthetic weight and activation patterns compared tile-by-tile to the
+`sv_dot` Python reference — adapted for the 4-macro 2-phase write protocol
+(8 consecutive `w_en` pulses per logical word, with `w_bank_sel` routing 32-bit
+chunks across banks and phases). The result is **VERIFIABLE PASS** across all 18
+tile checks (`sram_4macro_experiment/sim/cosim_run.log`).
 
 ### Testbench Coverage
 
@@ -275,94 +275,57 @@ are in `synth/` or the respective experiment subdirectory.
 
 ### 7.1 Register-File Baseline (`synth/`)
 
-| Metric                      | Value                               | Source                     |
-| --------------------------- | ----------------------------------- | -------------------------- |
-| Clock constraint            | 10 ns (100 MHz)                     | `synth/config.json`        |
-| Setup WNS                   | +3.545 ns (MET)                     | `synth/timing_report.txt`  |
-| Critical path               | 8.09 ns (FF → XNOR adder tree → FF) | `synth/timing_report.txt`  |
-| Max clock capability        | ~284 MHz                            |                            |
-| Total power (TT 25°C 1.8V)  | 215.3 mW                            | `synth/power_report.txt`   |
-| — Sequential (16,384 FFs)   | 90.3 mW (42%)                       |                            |
-| — Clock distribution        | 60.7 mW (28%)                       |                            |
-| — Combinational             | 64.4 mW (30%)                       |                            |
-| Std-cell area (post-route)  | 1,044,000 µm²                       | `synth/area_report.txt`    |
-| Die area                    | 2.56 mm² (1600×1600 µm)             |                            |
-| **Throughput (BNN layers)** | **~12.5 FPS (analytical est.)**     | per-tile × 1,404,928 tiles |
-| DRC / LVS                   | PASSED / PASSED                     |                            |
+| Metric                     | Value                               | Source                    |
+| -------------------------- | ----------------------------------- | ------------------------- |
+| Clock constraint           | 10 ns (100 MHz)                     | `synth/config.json`       |
+| Setup WNS                  | +3.545 ns (MET)                     | `synth/timing_report.txt` |
+| Critical path              | 8.09 ns (FF → XNOR adder tree → FF) | `synth/timing_report.txt` |
+| Max clock capability       | ~284 MHz                            |                           |
+| Total power (TT 25°C 1.8V) | 215.3 mW                            | `synth/power_report.txt`  |
+| — Sequential (16,384 FFs)  | 90.3 mW (42%)                       |                           |
+| — Clock distribution       | 60.7 mW (28%)                       |                           |
+| — Combinational            | 64.4 mW (30%)                       |                           |
+| Std-cell area (post-route) | 1,044,000 µm²                       | `synth/area_report.txt`   |
+| Die area                   | 2.56 mm² (1600×1600 µm)             |                           |
+| DRC / LVS                  | PASSED / PASSED                     |                           |
 
 The register file dominates both area (63%) and power (70%). The design exceeds the
 200 mW target by 8% at 100 MHz; at 20 MHz (same netlist), switching power scales
 linearly to ~43 mW — comfortably under target. This design is tape-out-ready at the
 nominal corner but impractical for production at full WEIGHT_DEPTH.
 
-### 7.2 1-SRAM Variant (`sram_1macro_experiment/`)
+### 7.2 SRAM Variant Comparison (1-macro and 8-macro)
 
-| Metric                      | Value                                          |
-| --------------------------- | ---------------------------------------------- |
-| Clock constraint            | 50 ns (20 MHz)                                 |
-| Setup WNS                   | +24.2 ns (MET)                                 |
-| Critical path               | ~25.8 ns                                       |
-| Total power (TT 25°C 1.8V)  | **2.91 mW**                                    |
-| — SRAM macro                | 0.79 mW (27%)                                  |
-| — Clock distribution        | 1.02 mW (35%)                                  |
-| — Sequential (947 FFs)      | 0.82 mW (28%)                                  |
-| — Combinational             | 0.29 mW (10%)                                  |
-| Die area                    | 4.0 mm² (2000×2000 µm)                         |
-| **Throughput (BNN layers)** | **0.50 FPS** (2,017 ms/frame, 1,404,928 tiles) |
-| DRC / LVS                   | PASSED / PASSED                                |
+The 1-macro variant (20 MHz, `sram_1macro_experiment/`) replaces 16,384 flip-flops with a
+single 1 KB SRAM macro, achieving a **74× power reduction** to 2.91 mW — but at only
+**0.50 FPS** due to 8-serial-chunk weight fetches. The 8-macro variant (40 MHz,
+`sram_8macro_experiment/`) recovers throughput via parallel 256-bit reads at **3.3 FPS**
+and 17.78 mW, but at the cost of 5.76 mm² die area and 12 route DRC / 8 KLayout DRC
+errors from metal-spacing violations at macro edges (bypassed with
+`ERROR_ON_TR_DRC: false`, `ERROR_ON_KLAYOUT_DRC: false` after confirming no functional
+impact). The 15 LVS mismatches on 8-macro (7 on 4-macro) are SRAM macro power pins
+present in extracted GDS but absent from the gate-level netlist — standard black-box
+behavior. Full per-metric tables are in the respective experiment subdirectories.
 
-The SRAM macro replaces 16,384 flip-flops with a single 1 KB macro, achieving a
-**74× power reduction** from the register-file baseline. The dominant power
-contributor shifts from the FF array to clock distribution — the expected profile
-for an SRAM-based design.
+### 7.3 4-SRAM Design — Final Design (`sram_4macro_experiment/`)
 
-### 7.3 8-SRAM Variant (`sram_8macro_experiment/`)
-
-| Metric                           | Value                                              |
-| -------------------------------- | -------------------------------------------------- |
-| Clock constraint                 | 25 ns (40 MHz)                                     |
-| Setup WNS                        | +11.573 ns (MET)                                   |
-| Hold WNS                         | +7.244 ns (MET)                                    |
-| Critical path                    | ~13.43 ns (SRAM output → compute_core FFs)         |
-| Total power (TT 25°C 1.8V)       | **17.78 mW**                                       |
-| — Internal (SRAM macros + logic) | 15.53 mW (87%)                                     |
-| — Switching                      | 2.10 mW (12%)                                      |
-| — Leakage                        | 0.15 mW (1%)                                       |
-| SRAM macro area                  | 1,525,700 µm² (8 macros)                           |
-| Std-cell area                    | 124,129 µm²                                        |
-| Die area                         | 5.76 mm² (2400×2400 µm)                            |
-| **Throughput (BNN layers)**      | **3.3 FPS** (306 ms/frame, 1,404,928 tiles)        |
-| Route DRC errors                 | 12 (met3/met4 spacing at macro edges — bypassed)   |
-| KLayout DRC errors               | 8 (met4 min-width stubs at macro edges — bypassed) |
-| LVS errors                       | 15 (SRAM macro power pin extraction — bypassed)    |
-
-The 8-macro design runs at 40 MHz (vs. 20 MHz for 1-macro) with 256-bit parallel
-weight reads, eliminating the 8× serialization overhead. Power rises to 17.78 mW
-(vs. 2.91 mW) due to 8× the SRAM macro count and a higher operating frequency;
-it remains **12× below the baseline** and **10× below the 200 mW target**.
-
-**DRC/LVS notes:** The 12 routing DRC and 8 KLayout DRC errors are localized to
-metal-spacing violations at sky130 SRAM macro edges — a known OpenLane/sky130
-SRAM integration issue. The 15 LVS mismatches are SRAM macro power pins
-(`vccd1`/`vssd1`) present in extracted GDS but absent from the gate-level netlist —
-standard black-box behavior, not a functional error. These were bypassed with
-`ERROR_ON_TR_DRC: false`, `ERROR_ON_KLAYOUT_DRC: false`, `QUIT_ON_LVS_ERROR: false`
-after confirming none affect logic correctness.
-
-### 7.4 4-SRAM Design — Final Design (`sram_4macro_experiment/`)
-
-| Metric                      | Value                                                     |
-| --------------------------- | --------------------------------------------------------- |
-| Clock constraint            | 25 ns (40 MHz)                                            |
-| Setup WNS                   | 0.0 ns (no violations; worst-case +11.42 ns — 45% margin) |
-| Total power (TT 25°C 1.8V)  | **12.007 mW**                                             |
-| Std-cell area               | 75,802 µm²                                                |
-| Die area                    | 4.32 mm² (2400×1800 µm, single-row macro placement)       |
-| **Throughput (BNN layers)** | **2.5 FPS** (401 ms/frame, 1,404,928 tiles)               |
-| **Energy/frame**            | **4.82 mJ** — best of all three SRAM configurations       |
-| Route DRC errors            | 5 (met3 spacing at macro edges — bypassed)                |
-| KLayout DRC errors          | **0**                                                     |
-| LVS errors                  | 7 (SRAM macro power pins — bypassed)                      |
+| Metric                      | Value                                                 |
+| --------------------------- | ----------------------------------------------------- |
+| Clock constraint            | 25 ns (40 MHz)                                        |
+| Setup WNS                   | 0.0 ns (MET; worst-case slack +11.42 ns — 45% margin) |
+| Hold WNS                    | 0.0 ns (MET; no hold violations)                      |
+| Total power (TT 25°C 1.8V)  | **11.53 mW**                                          |
+| — Macro (4× SRAM)           | 6.21 mW (53.9%)                                       |
+| — Sequential                | 2.63 mW (22.8%)                                       |
+| — Clock distribution        | 1.89 mW (16.4%)                                       |
+| — Combinational             | 0.80 mW (6.9%)                                        |
+| Std-cell area               | 75,802 µm²                                            |
+| Die area                    | 4.32 mm² (2400×1800 µm, single-row macro placement)   |
+| **Throughput (BNN layers)** | **2.5 FPS** (401 ms/frame, 1,404,928 tiles)           |
+| **Energy/frame**            | **4.62 mJ** — best of all three SRAM configurations   |
+| Route DRC errors            | 5 (met3 spacing at macro edges — bypassed)            |
+| KLayout DRC errors          | **0**                                                 |
+| LVS errors                  | 7 (SRAM macro power pins — bypassed)                  |
 
 The 4-macro design uses 2-phase 128-bit reads: each 256-bit weight word is assembled
 from two consecutive 128-bit SRAM reads (phase 0 = lower 128 bits, phase 1 = upper),
@@ -411,8 +374,8 @@ The 8-macro (highest-throughput experiment) uses parallel 256-bit reads, giving
 | ----------------------- | -------------------- | -------- | ------------------- | -------- |
 | Frame time (BNN layers) | 6.6 ms               | 2,017 ms | **401 ms**          | 306 ms   |
 | Throughput              | 151.5 FPS            | 0.50 FPS | **2.5 FPS**         | 3.3 FPS  |
-| Power                   | ~10,000 mW           | 2.91 mW  | **12.007 mW**       | 17.78 mW |
-| Energy/frame            | ~66,000 µJ           | 5,870 µJ | **4,817 µJ**        | 5,442 µJ |
+| Power                   | ~10,000 mW           | 2.91 mW  | **11.53 mW**        | 17.78 mW |
+| Energy/frame            | ~66,000 µJ           | 5,870 µJ | **4,620 µJ**        | 5,442 µJ |
 
 _SW baseline: `project/serengeti2_profile.py` on Apple M5, 100-run wall-clock average,
 bnn_serengeti2.pth (4-layer, 1.47 GFLOP). 4-macro numbers from
@@ -424,14 +387,17 @@ because the CPU baseline reflects a pipelined, batched implementation with
 cache warmth and SIMD acceleration on a high-performance M5 — not serial
 tile-by-tile execution as the hardware currently performs. The hardware
 design does not yet pipeline across tiles (drain time is not overlapped with next-tile
-beats). Pipelining the drain would reduce cycles/tile from `n_beats + 4` to
-`max(n_beats, pipeline_drain)`, improving throughput by 1.5–2.5×. This is the primary
-identified path to reaching ≥30 FPS.
+beats). Pipelining the drain would reduce cycles/tile from `2×n_beats + 6` to
+`max(2×n_beats, pipeline_drain)`, improving throughput by 1.5–2.5×. This was not
+implemented because the sky130 SRAM macro is treated as a black box by OpenLane —
+its internal timing is opaque to the optimizer, making it difficult to close timing
+on a pipelined path that crosses the SRAM output boundary. This is the primary
+identified path to reaching ≥30 FPS in a future revision.
 
 **Energy per frame:** Despite lower throughput at the current clock, the 4-macro final
 design achieves **~14× better energy per frame** than the M5 CPU baseline
-(4,817 µJ vs. ~66,000 µJ) — the best energy result of all configurations —
-while staying 12× below the 200 mW target.
+(4,620 µJ vs. ~66,000 µJ) — the best energy result of all configurations —
+while staying 17× below the 200 mW target.
 
 ### 8.3 Configuration Comparison
 
@@ -440,13 +406,13 @@ while staying 12× below the 200 mW target.
 | Clock        | 20 MHz     | **40 MHz**          | 40 MHz       |
 | Cycles/frame | 40,341,504 | **16,056,320**      | 12,242,944   |
 | Frame time   | 2,017 ms   | **401 ms**          | 306 ms       |
-| Power        | 2.91 mW    | **12.007 mW**       | 17.78 mW     |
-| Energy/frame | 5,870 µJ   | **4,817 µJ**        | 5,442 µJ     |
+| Power        | 2.91 mW    | **11.53 mW**        | 17.78 mW     |
+| Energy/frame | 5,870 µJ   | **4,620 µJ**        | 5,442 µJ     |
 | Die area     | 4.0 mm²    | **4.32 mm²**        | 5.76 mm²     |
 | KLayout DRC  | 0          | **0**               | 8 (bypassed) |
 
 The 4-macro design achieves the best energy/frame by trading a modest throughput loss
-vs. 8-macro (401 ms vs. 306 ms, 1.3×) for significantly lower power (12.007 vs.
+vs. 8-macro (401 ms vs. 306 ms, 1.3×) for significantly lower power (11.53 vs.
 17.78 mW, 1.5×) and cleaner physical implementation (KLayout 0 vs. 8 errors).
 Energy/frame is the key metric for a battery-powered deployment.
 
@@ -454,8 +420,21 @@ Energy/frame is the key metric for a battery-powered deployment.
 
 The hardware accelerator (final 4-macro design, 40 MHz) sits at:
 
-- Arithmetic intensity: ~379 FLOP/byte (unchanged — same AXI bus, same weights)
-- Attained performance: 2.5 FPS × 606 GOp/frame = **~1,515 GOPS** (XNOR equivalent)
+- Arithmetic intensity: ~1,975 FLOP/byte (binary-packed activations, 0.35 MB/frame)
+- Binary ops/frame: 694 MOp (conv2 + conv3 + conv4, each 231M XNOR-popcount ops)
+- Attained performance: 2.5 FPS × 694 MOp/frame = **~1.74 GOPS** (XNOR equivalent)
+
+The design is strongly compute-bound (AI >> HW ridge at ~8,000 F/B), but attained
+performance is ~5,900× below the theoretical 10,240 GOPS peak. This large gap is
+not an interface bottleneck — the AXI bus is not the constraint. It reflects serial
+tile-by-tile execution: the XNOR-popcount engine is idle during drain cycles and
+weight reloads, so compute utilization per frame is very low. Closing this gap
+requires pipelining across tiles so that the next tile's beats overlap with the
+current tile's drain. This was not achievable with the current toolchain: the
+sky130 SRAM macro is a black box to OpenLane's timing optimizer, making it
+impossible for the tool to verify setup/hold on a pipeline path that crosses the
+SRAM output boundary. Manual timing closure at this level of complexity was
+outside the scope of this project.
 
 Full benchmark data: `bench/benchmark_data.csv`
 
@@ -483,7 +462,7 @@ production-scale weight storage.
 
 Attempted a 16-macro configuration (16× `sky130_sram_1kbyte_1rw1r_32x256_8`) for
 512-bit weight reads in 2 cycles. All runs failed: 9,221 routing DRC errors at
-signoff, STA killed with SIGKILL after 7 hours. Root cause: 16 macros in 2 rows
+signoff, STA killed with SIGKILL. Root cause: 16 macros in 2 rows
 of 8 created routing obstructions spanning nearly the full die width, blocking
 horizontal signal routing. **Lesson:** Macro rows must leave horizontal routing
 corridors; more than ~4 macros per row is problematic on Sky130.

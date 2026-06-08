@@ -6,34 +6,43 @@ ECE 510 Spring 2026 | Rebecca Gilbert-Croysdale
 
 ## 1. Platform and Configurations Compared
 
-| Config               | Platform                       | Clock   | Weight Memory                        | Status                    |
-| -------------------- | ------------------------------ | ------- | ------------------------------------ | ------------------------- |
-| **SW Baseline**      | Apple M1 CPU (float32 PyTorch) | N/A     | N/A                                  | Done (M1)                 |
-| **Reg-file (WD=64)** | Sky130A HD, OpenLane 2.3.10    | 100 MHz | 64×256-bit reg file                  | P&R PASS                  |
-| **1-SRAM macro**     | Sky130A HD                     | 20 MHz  | 1× sky130_sram_1kbyte_1rw1r_32x256_8 | P&R PASS                  |
-| **4-SRAM macro**     | Sky130A HD                     | 40 MHz  | 4× sky130_sram_1kbyte_1rw1r_32x256_8 | P&R complete (DRC bypassed) — **final design** |
-| **8-SRAM macro**     | Sky130A HD                     | 40 MHz  | 8× sky130_sram_1kbyte_1rw1r_32x256_8 | P&R PASS (DRC bypassed)   |
+| Config               | Platform                                       | Clock   | Weight Memory                        | Status                                         |
+| -------------------- | ---------------------------------------------- | ------- | ------------------------------------ | ---------------------------------------------- |
+| **SW Baseline**      | Apple M5 CPU (float32 PyTorch, bnn_serengeti2) | N/A     | N/A                                  | Done (serengeti2_profile.py)                   |
+| **Reg-file (WD=64)** | Sky130A HD, OpenLane 2.3.10                    | 100 MHz | 64×256-bit reg file                  | P&R PASS                                       |
+| **1-SRAM macro**     | Sky130A HD                                     | 20 MHz  | 1× sky130_sram_1kbyte_1rw1r_32x256_8 | P&R PASS                                       |
+| **4-SRAM macro**     | Sky130A HD                                     | 40 MHz  | 4× sky130_sram_1kbyte_1rw1r_32x256_8 | P&R complete (DRC bypassed) — **final design** |
+| **8-SRAM macro**     | Sky130A HD                                     | 40 MHz  | 8× sky130_sram_1kbyte_1rw1r_32x256_8 | P&R PASS (DRC bypassed)                        |
 
 Raw numbers: [benchmark_data.csv](benchmark_data.csv)
 
 Note on binary operations: the accelerator performs XNOR+popcount (1-bit equivalent MACs),
-not float32 MACs. The M1 baseline runs the same BNN network in PyTorch but emulates
-binary operations via float32 tensors — this is why the M1 appears slow relative to
+not float32 MACs. The M5 software baseline runs the same BNN network in PyTorch but emulates
+binary operations via float32 tensors — this is why the CPU appears slow relative to
 its peak FLOP/s. The comparison is valid for the target task (BNN inference), but
 FLOP/s numbers are architectural equivalents, not standard IEEE floating-point metrics.
+
+> **Baseline evolution:** The original M1 placeholder (`project/m1/sw_baseline.md`) used
+> a 3-layer model and measured 82 FPS at 12.19 ms/frame. The algorithm was extended to
+> 4 binary layers for accuracy gain; the final trained model (`bnn_serengeti2.pth`) was
+> re-profiled on an Apple M5 (`project/serengeti2_profile.py`), yielding 151.5 FPS at
+> 6.6 ms/frame. All M4 figures use the M5/4-layer baseline.
 
 ---
 
 ## 2. Throughput
 
-### Software Baseline (M1)
+### Software Baseline (Apple M5, bnn_serengeti2)
 
-| Metric                           | Value                            |
-| -------------------------------- | -------------------------------- |
-| Mean latency (single image)      | 12.19 ms                         |
-| Throughput                       | 82.0 images/sec                  |
-| Attained compute                 | ~83 GFLOP/s (float32 equivalent) |
-| Binary layers (conv2–4) fraction | ~71% of runtime                  |
+| Metric                           | Value                             |
+| -------------------------------- | --------------------------------- |
+| Mean latency (single image)      | 6.6 ms                            |
+| Throughput                       | 151.5 images/sec                  |
+| Attained compute                 | ~223 GFLOP/s (float32 equivalent) |
+| Binary layers (conv2–4) fraction | ~78% of runtime (519 ms / 663 ms) |
+| Arithmetic intensity (conv2)     | ~47.64 FLOP/byte                  |
+
+_Source: `project/serengeti2_profile.py`, 100-run wall-clock average, bnn_serengeti2.pth (4-layer, 1.47 GFLOP)_
 
 ### Hardware Configurations
 
@@ -85,7 +94,7 @@ AXI stalls 1 cycle per beat during phase 1. Per-tile cycles = 2×n_beats + 6.
 
 At 40 MHz (25 ns/cycle): 16,056,320 × 25 ns = **401 ms → 2.5 FPS**
 
-Power: **12.007 mW** (post-route OpenSTA, TT 25°C 1.8V). Std-cell area: 75,802 µm². Die: 4.32 mm².
+Power: **11.53 mW** (post-route OpenSTA, TT 25°C 1.8V). Std-cell area: 75,802 µm². Die: 4.32 mm².
 
 #### 8-SRAM macro (40 MHz)
 
@@ -103,13 +112,13 @@ At 40 MHz (25 ns/cycle): 12,242,944 × 25 ns = **306.1 ms → 3.3 FPS**
 
 ### Hardware vs. Software Summary
 
-| Metric                  | SW Baseline (M1) | 1-macro HW      | 4-macro HW     | 8-macro HW     |
-| ----------------------- | ---------------- | --------------- | -------------- | -------------- |
-| Frame time (BNN layers) | 12.19 ms         | 2,017 ms        | 401 ms         | 306 ms         |
-| Throughput              | 82 FPS           | 0.50 FPS        | 2.5 FPS        | 3.3 FPS        |
-| Speedup (frame time)    | 1×               | 0.006× (slower) | 0.03× (slower) | 0.04× (slower) |
+| Metric                  | SW Baseline (M5) | 1-macro HW      | 4-macro HW      | 8-macro HW      |
+| ----------------------- | ---------------- | --------------- | --------------- | --------------- |
+| Frame time (BNN layers) | 6.6 ms           | 2,017 ms        | 401 ms          | 306 ms          |
+| Throughput              | 151.5 FPS        | 0.50 FPS        | 2.5 FPS         | 3.3 FPS         |
+| Speedup (frame time)    | 1×               | 0.003× (slower) | 0.016× (slower) | 0.022× (slower) |
 
-The hardware is slower than the M1 CPU for these layers. The M1 achieves high
+The hardware is slower than the M5 CPU for these layers. The M5 achieves high
 throughput through vectorized PyTorch operations, SIMD acceleration, batched
 execution, and cache warmth — none of which apply to the serial tile-by-tile
 hardware execution without pipelining across tiles. The hardware advantage is
@@ -132,7 +141,7 @@ identified as the primary path to ≥30 FPS.
 | SW Baseline (M1 SoC)      | ~10,000 mW (estimated) | Published review (Anandtech 2020)    |
 | Reg-file (WD=64, 100 MHz) | 215.3 mW               | `synth/power_report.txt`             |
 | 1-SRAM macro (20 MHz)     | **2.91 mW**            | `sram_1macro_experiment/` post-route |
-| 4-SRAM macro (40 MHz)     | **12.007 mW**          | `sram_4macro_experiment/` post-route |
+| 4-SRAM macro (40 MHz)     | **11.53 mW**          | `sram_4macro_experiment/` post-route |
 | 8-SRAM macro (40 MHz)     | **17.78 mW**           | `sram_8macro_experiment/` post-route |
 
 All hardware power figures: OpenSTA post-route, nominal corner (TT 25°C 1.8V).
@@ -164,7 +173,7 @@ All hardware power figures: OpenSTA post-route, nominal corner (TT 25°C 1.8V).
 | ------------------ | ---------- | ---------- | ------------ |
 | M1 CPU (estimated) | ~10,000 mW | 12.19 ms   | ~122,000 µJ  |
 | 1-macro HW         | 2.91 mW    | 2,017 ms   | 5,869 µJ     |
-| 4-macro HW         | 12.007 mW  | 401 ms     | **4,817 µJ** |
+| 4-macro HW         | 11.53 mW  | 401 ms     | **4,620 µJ** |
 | 8-macro HW         | 17.78 mW   | 306.1 ms   | **5,442 µJ** |
 
 **~22× better energy/frame** than M1 despite lower throughput, because the hardware
@@ -178,7 +187,7 @@ draws ~3,500× less power and runs only the binary layers (not full model).
 | ---------------- | ---------------------------------------------- | -------- | ----------- |
 | Reg-file (WD=64) | 1,044,000 µm²                                  | 2.56 mm² | 40.8%       |
 | 1-SRAM macro     | 306,714 µm²                                    | 4.0 mm²  | 3.2%        |
-| 4-SRAM macro     | 75,802 µm² (stdcell) + ~762,800 µm² (macros)  | 4.32 mm² | ~19.8%      |
+| 4-SRAM macro     | 75,802 µm² (stdcell) + ~762,800 µm² (macros)   | 4.32 mm² | ~19.8%      |
 | 8-SRAM macro     | 124,129 µm² (stdcell) + 1,525,700 µm² (macros) | 5.76 mm² | ~28.6%      |
 
 ---
@@ -191,29 +200,27 @@ See [figures/roofline_final.png](figures/roofline_final.png) for the annotated p
 
 | System                              | Arithmetic Intensity (FLOP/byte) | Attained Performance | Region        |
 | ----------------------------------- | -------------------------------- | -------------------- | ------------- |
-| Apple M1 CPU (4-layer model)        | ~57.9 FLOP/byte                  | ~83 GFLOP/s          | Memory-bound  |
-| BNN chiplet (40 MHz, 4-macro final) | ~379 FLOP/byte                   | ~1,515 GOPS equiv.   | Compute-bound |
+| Apple M5 CPU (4-layer model)        | ~47.64 FLOP/byte                 | ~223 GFLOP/s         | Near ridge    |
+| BNN chiplet (40 MHz, 4-macro final) | ~1,975 FLOP/byte                 | ~1.74 GOPS equiv.    | Compute-bound |
 
 **Arithmetic intensity calculation (hardware):**
 
-- AXI payload per frame (activations only): ~1.6 MB
-- Operations per frame: ~606 GOp (Conv2–4 XNOR-popcount equivalent)
-- AI = 606 / 1.6 ≈ **379 FLOP/byte**
+- AXI payload per frame (binary-packed activations only): ~0.35 MB
+  - conv2 input: 32ch × 224² = 1,605,632 bits = 200,704 B
+  - conv3 input: 64ch × 112² = 802,816 bits = 100,352 B
+  - conv4 input: 128ch × 56² = 401,408 bits = 50,176 B
+- Operations per frame: ~694 MOp (Conv2–4 XNOR-popcount, 231M each)
+- AI = 694×10⁶ / 351,232 ≈ **~1,975 FLOP/byte**
 
-At 379 FLOP/byte, the hardware is firmly compute-bound on the hardware roofline.
-The activation-streaming dataflow (weights on-chip, activations streaming in)
-is what raises arithmetic intensity from 57.9 (M1 CPU, 4-layer model) to 379 — the
-AXI bus carries only activation data, making the effective AI much higher than the
-instruction-level AI of a pure DRAM-based implementation.
-
-> **Note:** The original 3-layer software baseline had AI ~12.34 FLOP/byte. The
-> algorithm was extended to 4 binary layers to improve accuracy on Caltech Camera
-> Traps; all hardware figures use the 4-layer model (M1 AI = 57.9 FLOP/byte).
+At ~1,975 FLOP/byte, the hardware is strongly compute-bound. The activation-streaming
+dataflow (weights on-chip in SRAM, binary-packed activations streaming via AXI) is what
+drives arithmetic intensity so high — the AXI bus carries only 1-bit-packed activation
+data, making each transferred byte correspond to nearly 2,000 on-chip operations.
 
 **Attained performance at 2.5 FPS (final 4-macro design):**
-2.5 FPS × 606 GOp/frame = **~1,515 GOPS** (XNOR equivalent)
+2.5 FPS × 694 MOp/frame = **~1.74 GOPS** (XNOR equivalent)
 
-For reference, the 8-macro experiment attains 3.3 FPS × 606 GOp/frame = ~2,000 GOPS.
+For reference, the 8-macro experiment attains 3.3 FPS × 694 MOp/frame = ~2.29 GOPS.
 
 ---
 
@@ -227,8 +234,8 @@ For reference, the 8-macro experiment attains 3.3 FPS × 606 GOp/frame = ~2,000 
 | Cycles/frame   | 40,341,504   | 16,056,320    | 12,242,944    |
 | Frame time     | 2,017 ms     | 401 ms        | 306 ms        |
 | **Throughput** | **0.50 FPS** | **2.5 FPS**   | **3.3 FPS**   |
-| Power          | 2.91 mW      | **12.007 mW** | 17.78 mW      |
-| Energy/frame   | 5,869 µJ     | **4,817 µJ**  | 5,442 µJ      |
+| Power          | 2.91 mW      | **11.53 mW** | 17.78 mW      |
+| Energy/frame   | 5,869 µJ     | **4,620 µJ**  | 5,442 µJ      |
 | Die area       | 4.0 mm²      | 4.32 mm²      | 5.76 mm²      |
 | Routing DRC    | 0            | 5 (bypassed)  | 12 (bypassed) |
 | KLayout DRC    | 0            | **0**         | 8 (bypassed)  |
@@ -248,4 +255,4 @@ tile is not reduced by the memory bandwidth increase.
 
 _Data sources: `synth/power_report.txt`, `synth/area_report.txt`, `synth/timing_report.txt`,
 `sram_1macro_experiment/` P&R reports, `sram_8macro_experiment/sim/timing_sim.log`,
-`project/m1/sw_baseline.md`_
+`project/serengeti2_profile.py` (SW baseline — M5, bnn_serengeti2, 4-layer)_
