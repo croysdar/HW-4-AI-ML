@@ -84,6 +84,15 @@ project/m4/sram_experiment/runs/
 project/m4/sram_256_experiment/runs/
 project/m4/sram_1macro_experiment/runs/
 project/m4/sram_8macro_experiment/runs/
+project/m4/sram_4macro_experiment/runs/
+
+project/design_decisions/
+
+# Claude Code session/memory files
+.claude/
+
+# Python virtual environments (report PDF generation etc.)
+project/m4/report/venv/
 
 # Hardware inference co-sim scratch files (regenerated each run)
 project/m4/sram_1macro_experiment/hw_inference_run/
