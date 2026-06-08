@@ -77,6 +77,16 @@ project/m3/synth/compute_core_pipelined_netlist.v
 # Iverilog compiled simulation binaries (reproducible from source)
 project/m*/sim/tb_top
 project/m4/sim/tb_top_check
+project/m4/sram_4macro_experiment/sim/tb_top_4sram
+
+# GTKWave session files (local display preferences)
+*.gtkw
+
+# Benchmark profile output at project root (committed copy is in m4/bench/)
+project/serengeti2_profile_output.txt
+
+# Deleted bench/figures directory (roofline lives at bench/roofline_final.png)
+project/m4/bench/figures/
 
 # SRAM experiment OpenLane run artifacts
 project/m4/sram_*/cosim_run.vcd

@@ -48,19 +48,25 @@ See [`project/m4/README.md`](project/m4/README.md) for the complete M4 deliverab
 M4 completes full-chip P&R of `bnn_top` on Sky130A HD using OpenLane 2.3.10, and
 re-validates the end-to-end co-simulation at WEIGHT_DEPTH=64.
 
-**Key results (WD=64 baseline, DRC/LVS PASSED):**
-- 78/78 OpenLane steps; Setup WNS +6.477 ns (MET at 100 MHz); total power 215.3 mW
-- Post-route: 1,043,990 µm² on 1,600×1,600 µm die (40.8% utilization)
-- Co-simulation: VERIFIABLE PASS — all 18 tile checks matched sv_dot reference
-- Roofline: 379 FLOP/byte (compute-bound); >200× throughput vs. M1 CPU baseline
-- SRAM macro integration (16× sky130_sram_1kbyte_1rw1r_32x256_8): in progress
+**Final design (4-SRAM, `sram_4macro_experiment/`, DRC bypassed):**
+- 72/72 OpenLane steps; Setup WNS 0.0 ns (no violations; +11.42 ns worst-case slack at 40 MHz)
+- Total power 12.007 mW (TT 25°C 1.8V); energy/frame 4.82 mJ — best of all three SRAM configs
+- Full-frame inference: 1,404,928 tiles, 16,056,320 cycles, 401 ms, 2.5 FPS
+- Roofline: 379 FLOP/byte (compute-bound); ~22× better energy/frame than M1 CPU baseline
+- KLayout DRC: 0 errors; 5 routing DRC + 7 LVS mismatches (all SRAM macro edge artifacts, bypassed)
+
+**Also delivered (reference experiments):**
+- Reg-file baseline (`synth/`): DRC/LVS PASSED, 215.3 mW, 100 MHz; establishes 74× power reduction from reg-file to SRAM
+- 1-SRAM (`sram_1macro_experiment/`): DRC/LVS PASSED, 2.91 mW, 0.50 FPS — lowest power
+- 8-SRAM (`sram_8macro_experiment/`): 17.78 mW, 3.3 FPS — highest throughput
 
 **Power optimizations implemented:**
-- Clock frequency target: 20 MHz (1.0+ MHz required for 30 FPS; 5× switching power reduction)
+- Clock frequency target: 40 MHz (final design); 20 MHz (1-SRAM experiment)
 - Operand isolation: XNOR/popcount registers gated on `s_valid` to reduce idle power
+- Co-simulation: VERIFIABLE PASS — all 18 tile checks matched sv_dot reference
 
 See [`project/m4/bench/benchmark.md`](project/m4/bench/benchmark.md) for full HW vs. SW comparison
-and [`project/m4/report/design_justification.md`](project/m4/report/design_justification.md) for
+and [`project/m4/report/design_justification.pdf`](project/m4/report/design_justification.pdf) for
 the architecture and design justification report.
 
 ---

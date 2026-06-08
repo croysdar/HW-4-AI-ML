@@ -6,13 +6,13 @@ ECE 510 Spring 2026 | Rebecca Gilbert-Croysdale
 
 ## 1. Platform and Configurations Compared
 
-| Config | Platform | Clock | Weight Memory | Status |
-|--------|----------|-------|---------------|--------|
-| **SW Baseline** | Apple M1 CPU (float32 PyTorch) | N/A | N/A | Done (M1) |
-| **Reg-file (WD=64)** | Sky130A HD, OpenLane 2.3.10 | 100 MHz | 64×256-bit reg file | P&R PASS |
-| **1-SRAM macro** | Sky130A HD | 20 MHz | 1× sky130_sram_1kbyte_1rw1r_32x256_8 | P&R PASS |
-| **4-SRAM macro** | Sky130A HD | 40 MHz | 4× sky130_sram_1kbyte_1rw1r_32x256_8 | RTL sim done; P&R pending |
-| **8-SRAM macro** | Sky130A HD | 40 MHz | 8× sky130_sram_1kbyte_1rw1r_32x256_8 | P&R PASS (DRC bypassed) |
+| Config               | Platform                       | Clock   | Weight Memory                        | Status                    |
+| -------------------- | ------------------------------ | ------- | ------------------------------------ | ------------------------- |
+| **SW Baseline**      | Apple M1 CPU (float32 PyTorch) | N/A     | N/A                                  | Done (M1)                 |
+| **Reg-file (WD=64)** | Sky130A HD, OpenLane 2.3.10    | 100 MHz | 64×256-bit reg file                  | P&R PASS                  |
+| **1-SRAM macro**     | Sky130A HD                     | 20 MHz  | 1× sky130_sram_1kbyte_1rw1r_32x256_8 | P&R PASS                  |
+| **4-SRAM macro**     | Sky130A HD                     | 40 MHz  | 4× sky130_sram_1kbyte_1rw1r_32x256_8 | P&R complete (DRC bypassed) — **final design** |
+| **8-SRAM macro**     | Sky130A HD                     | 40 MHz  | 8× sky130_sram_1kbyte_1rw1r_32x256_8 | P&R PASS (DRC bypassed)   |
 
 Raw numbers: [benchmark_data.csv](benchmark_data.csv)
 
@@ -28,12 +28,12 @@ FLOP/s numbers are architectural equivalents, not standard IEEE floating-point m
 
 ### Software Baseline (M1)
 
-| Metric | Value |
-|--------|-------|
-| Mean latency (single image) | 12.19 ms |
-| Throughput | 82.0 images/sec |
-| Attained compute | ~83 GFLOP/s (float32 equivalent) |
-| Binary layers (conv2–4) fraction | ~71% of runtime |
+| Metric                           | Value                            |
+| -------------------------------- | -------------------------------- |
+| Mean latency (single image)      | 12.19 ms                         |
+| Throughput                       | 82.0 images/sec                  |
+| Attained compute                 | ~83 GFLOP/s (float32 equivalent) |
+| Binary layers (conv2–4) fraction | ~71% of runtime                  |
 
 ### Hardware Configurations
 
@@ -47,12 +47,12 @@ Total: **1,404,928 tiles**.
 Parallel 256-bit weight reads from the register file; no serialization overhead.
 Per-tile cycles ≈ n_beats + 3 (drain). Full-frame estimate:
 
-| Layer | Beats/tile | Est. cycles/tile | Tiles | Est. cycles |
-|-------|------------|------------------|-------|-------------|
-| conv2 | 2 | ~5 | 802,816 | ~4.0M |
-| conv3 | 3 | ~6 | 401,408 | ~2.4M |
-| conv4 | 5 | ~8 | 200,704 | ~1.6M |
-| **Total** | | | 1,404,928 | **~8.0M** |
+| Layer     | Beats/tile | Est. cycles/tile | Tiles     | Est. cycles |
+| --------- | ---------- | ---------------- | --------- | ----------- |
+| conv2     | 2          | ~5               | 802,816   | ~4.0M       |
+| conv3     | 3          | ~6               | 401,408   | ~2.4M       |
+| conv4     | 5          | ~8               | 200,704   | ~1.6M       |
+| **Total** |            |                  | 1,404,928 | **~8.0M**   |
 
 At 100 MHz: ~8.0M × 10 ns = **~80 ms → ~12.5 FPS** (analytical estimate; not simulated).
 
@@ -61,12 +61,12 @@ At 100 MHz: ~8.0M × 10 ns = **~80 ms → ~12.5 FPS** (analytical estimate; not 
 32-bit SRAM reads with 8 serial chunks per beat. Per-tile cycles = n_beats×8 + 7.
 Confirmed by simulation (`sram_1macro_experiment/sim/tb_timing.sv`):
 
-| Layer | Beats/tile | Cycles/tile | Tiles | Cycles |
-|-------|------------|-------------|-------|--------|
-| conv2 | 2 | **23** | 802,816 | 18,464,768 |
-| conv3 | 3 | **31** | 401,408 | 12,443,648 |
-| conv4 | 5 | **47** | 200,704 | 9,433,088 |
-| **Total** | | | 1,404,928 | **40,341,504** |
+| Layer     | Beats/tile | Cycles/tile | Tiles     | Cycles         |
+| --------- | ---------- | ----------- | --------- | -------------- |
+| conv2     | 2          | **23**      | 802,816   | 18,464,768     |
+| conv3     | 3          | **31**      | 401,408   | 12,443,648     |
+| conv4     | 5          | **47**      | 200,704   | 9,433,088      |
+| **Total** |            |             | 1,404,928 | **40,341,504** |
 
 At 20 MHz (50 ns/cycle): 40,341,504 × 50 ns = **2,017 ms → 0.50 FPS**
 
@@ -76,38 +76,38 @@ At 20 MHz (50 ns/cycle): 40,341,504 × 50 ns = **2,017 ms → 0.50 FPS**
 AXI stalls 1 cycle per beat during phase 1. Per-tile cycles = 2×n_beats + 6.
 **Confirmed by iverilog simulation** (`sram_4macro_experiment/sim/tb_timing_4macro.sv`):
 
-| Layer | Beats/tile | Cycles/tile | Tiles | Cycles |
-|-------|------------|-------------|-------|--------|
-| conv2 | 2 | **10** | 802,816 | 8,028,160 |
-| conv3 | 3 | **12** | 401,408 | 4,816,896 |
-| conv4 | 5 | **16** | 200,704 | 3,211,264 |
-| **Total** | | | 1,404,928 | **16,056,320** |
+| Layer     | Beats/tile | Cycles/tile | Tiles     | Cycles         |
+| --------- | ---------- | ----------- | --------- | -------------- |
+| conv2     | 2          | **10**      | 802,816   | 8,028,160      |
+| conv3     | 3          | **12**      | 401,408   | 4,816,896      |
+| conv4     | 5          | **16**      | 200,704   | 3,211,264      |
+| **Total** |            |             | 1,404,928 | **16,056,320** |
 
 At 40 MHz (25 ns/cycle): 16,056,320 × 25 ns = **401 ms → 2.5 FPS**
 
-Power and area pending P&R.
+Power: **12.007 mW** (post-route OpenSTA, TT 25°C 1.8V). Std-cell area: 75,802 µm². Die: 4.32 mm².
 
 #### 8-SRAM macro (40 MHz)
 
 Parallel 256-bit SRAM reads (8 banks, 1 cycle). Per-tile cycles = n_beats + 6.
 **Confirmed by iverilog simulation** (`sram_8macro_experiment/sim/timing_sim.log`):
 
-| Layer | Beats/tile | Cycles/tile | Tiles | Cycles |
-|-------|------------|-------------|-------|--------|
-| conv2 | 2 | **8** | 802,816 | 6,422,528 |
-| conv3 | 3 | **9** | 401,408 | 3,612,672 |
-| conv4 | 5 | **11** | 200,704 | 2,207,744 |
-| **Total** | | | 1,404,928 | **12,242,944** |
+| Layer     | Beats/tile | Cycles/tile | Tiles     | Cycles         |
+| --------- | ---------- | ----------- | --------- | -------------- |
+| conv2     | 2          | **8**       | 802,816   | 6,422,528      |
+| conv3     | 3          | **9**       | 401,408   | 3,612,672      |
+| conv4     | 5          | **11**      | 200,704   | 2,207,744      |
+| **Total** |            |             | 1,404,928 | **12,242,944** |
 
 At 40 MHz (25 ns/cycle): 12,242,944 × 25 ns = **306.1 ms → 3.3 FPS**
 
 ### Hardware vs. Software Summary
 
-| Metric | SW Baseline (M1) | 1-macro HW | 4-macro HW | 8-macro HW |
-|--------|-----------------|------------|------------|------------|
-| Frame time (BNN layers) | 12.19 ms | 2,017 ms | 401 ms | 306 ms |
-| Throughput | 82 FPS | 0.50 FPS | 2.5 FPS | 3.3 FPS |
-| Speedup (frame time) | 1× | 0.006× (slower) | 0.03× (slower) | 0.04× (slower) |
+| Metric                  | SW Baseline (M1) | 1-macro HW      | 4-macro HW     | 8-macro HW     |
+| ----------------------- | ---------------- | --------------- | -------------- | -------------- |
+| Frame time (BNN layers) | 12.19 ms         | 2,017 ms        | 401 ms         | 306 ms         |
+| Throughput              | 82 FPS           | 0.50 FPS        | 2.5 FPS        | 3.3 FPS        |
+| Speedup (frame time)    | 1×               | 0.006× (slower) | 0.03× (slower) | 0.04× (slower) |
 
 The hardware is slower than the M1 CPU for these layers. The M1 achieves high
 throughput through vectorized PyTorch operations, SIMD acceleration, batched
@@ -127,44 +127,45 @@ identified as the primary path to ≥30 FPS.
 
 ## 3. Power
 
-| Config | Power | Source |
-|--------|-------|--------|
-| SW Baseline (M1 SoC) | ~10,000 mW (estimated) | Published review (Anandtech 2020) |
-| Reg-file (WD=64, 100 MHz) | 215.3 mW | `synth/power_report.txt` |
-| 1-SRAM macro (20 MHz) | **2.91 mW** | `sram_1macro_experiment/` post-route |
-| 8-SRAM macro (40 MHz) | **17.78 mW** | `sram_8macro_experiment/` post-route |
+| Config                    | Power                  | Source                               |
+| ------------------------- | ---------------------- | ------------------------------------ |
+| SW Baseline (M1 SoC)      | ~10,000 mW (estimated) | Published review (Anandtech 2020)    |
+| Reg-file (WD=64, 100 MHz) | 215.3 mW               | `synth/power_report.txt`             |
+| 1-SRAM macro (20 MHz)     | **2.91 mW**            | `sram_1macro_experiment/` post-route |
+| 4-SRAM macro (40 MHz)     | **12.007 mW**          | `sram_4macro_experiment/` post-route |
+| 8-SRAM macro (40 MHz)     | **17.78 mW**           | `sram_8macro_experiment/` post-route |
 
 All hardware power figures: OpenSTA post-route, nominal corner (TT 25°C 1.8V).
 
 ### 1-SRAM Power Breakdown
 
-| Component | Power | Share |
-|-----------|-------|-------|
-| Sequential (947 FFs) | 0.82 mW | 28% |
-| Clock distribution | 1.02 mW | 35% |
-| SRAM macro | 0.79 mW | 27% |
-| Combinational | 0.29 mW | 10% |
-| **Total** | **2.91 mW** | |
+| Component            | Power       | Share |
+| -------------------- | ----------- | ----- |
+| Sequential (947 FFs) | 0.82 mW     | 28%   |
+| Clock distribution   | 1.02 mW     | 35%   |
+| SRAM macro           | 0.79 mW     | 27%   |
+| Combinational        | 0.29 mW     | 10%   |
+| **Total**            | **2.91 mW** |       |
 
 ### 8-SRAM Power Breakdown
 
-| Component | Power | Share |
-|-----------|-------|-------|
-| Internal (macros + logic) | 15.53 mW | 87% |
-| Switching | 2.10 mW | 12% |
-| Leakage | 0.15 mW | 1% |
-| **Total** | **17.78 mW** | |
+| Component                 | Power        | Share |
+| ------------------------- | ------------ | ----- |
+| Internal (macros + logic) | 15.53 mW     | 87%   |
+| Switching                 | 2.10 mW      | 12%   |
+| Leakage                   | 0.15 mW      | 1%    |
+| **Total**                 | **17.78 mW** |       |
 
 ---
 
 ## 4. Energy per Frame
 
-| Config | Power | Frame time | Energy/frame |
-|--------|-------|-----------|--------------|
-| M1 CPU (estimated) | ~10,000 mW | 12.19 ms | ~122,000 µJ |
-| 1-macro HW | 2.91 mW | 2,017 ms | 5,869 µJ |
-| 4-macro HW | 12.007 mW | 401 ms | **4,817 µJ** |
-| 8-macro HW | 17.78 mW | 306.1 ms | **5,442 µJ** |
+| Config             | Power      | Frame time | Energy/frame |
+| ------------------ | ---------- | ---------- | ------------ |
+| M1 CPU (estimated) | ~10,000 mW | 12.19 ms   | ~122,000 µJ  |
+| 1-macro HW         | 2.91 mW    | 2,017 ms   | 5,869 µJ     |
+| 4-macro HW         | 12.007 mW  | 401 ms     | **4,817 µJ** |
+| 8-macro HW         | 17.78 mW   | 306.1 ms   | **5,442 µJ** |
 
 **~22× better energy/frame** than M1 despite lower throughput, because the hardware
 draws ~3,500× less power and runs only the binary layers (not full model).
@@ -173,11 +174,12 @@ draws ~3,500× less power and runs only the binary layers (not full model).
 
 ## 5. Area
 
-| Config | Std-cell area | Die area | Utilization |
-|--------|---------------|----------|-------------|
-| Reg-file (WD=64) | 1,044,000 µm² | 2.56 mm² | 40.8% |
-| 1-SRAM macro | 306,714 µm² | 4.0 mm² | 3.2% |
-| 8-SRAM macro | 124,129 µm² (stdcell) + 1,525,700 µm² (macros) | 5.76 mm² | ~28.6% |
+| Config           | Std-cell area                                  | Die area | Utilization |
+| ---------------- | ---------------------------------------------- | -------- | ----------- |
+| Reg-file (WD=64) | 1,044,000 µm²                                  | 2.56 mm² | 40.8%       |
+| 1-SRAM macro     | 306,714 µm²                                    | 4.0 mm²  | 3.2%        |
+| 4-SRAM macro     | 75,802 µm² (stdcell) + ~762,800 µm² (macros)  | 4.32 mm² | ~19.8%      |
+| 8-SRAM macro     | 124,129 µm² (stdcell) + 1,525,700 µm² (macros) | 5.76 mm² | ~28.6%      |
 
 ---
 
@@ -187,24 +189,31 @@ See [figures/roofline_final.png](figures/roofline_final.png) for the annotated p
 
 ### Key Operating Points
 
-| System | Arithmetic Intensity (FLOP/byte) | Attained Performance | Region |
-|--------|----------------------------------|---------------------|--------|
-| Apple M1 CPU (full model) | ~12.3 FLOP/byte | ~83 GFLOP/s | Memory-bound |
-| BNN chiplet (40 MHz, 8-macro) | ~379 FLOP/byte | ~2.0 TOPS equiv. | Compute-bound |
+| System                              | Arithmetic Intensity (FLOP/byte) | Attained Performance | Region        |
+| ----------------------------------- | -------------------------------- | -------------------- | ------------- |
+| Apple M1 CPU (4-layer model)        | ~57.9 FLOP/byte                  | ~83 GFLOP/s          | Memory-bound  |
+| BNN chiplet (40 MHz, 4-macro final) | ~379 FLOP/byte                   | ~1,515 GOPS equiv.   | Compute-bound |
 
 **Arithmetic intensity calculation (hardware):**
+
 - AXI payload per frame (activations only): ~1.6 MB
 - Operations per frame: ~606 GOp (Conv2–4 XNOR-popcount equivalent)
 - AI = 606 / 1.6 ≈ **379 FLOP/byte**
 
 At 379 FLOP/byte, the hardware is firmly compute-bound on the hardware roofline.
 The activation-streaming dataflow (weights on-chip, activations streaming in)
-is what raises arithmetic intensity from 12.3 to 379 — the AXI bus carries only
-activation data, making the effective AI much higher than the instruction-level AI
-of a pure DRAM-based implementation.
+is what raises arithmetic intensity from 57.9 (M1 CPU, 4-layer model) to 379 — the
+AXI bus carries only activation data, making the effective AI much higher than the
+instruction-level AI of a pure DRAM-based implementation.
 
-**Attained performance at 3.3 FPS:**
-3.3 FPS × 606 GOp/frame = **~2,000 GOPS** (XNOR equivalent)
+> **Note:** The original 3-layer software baseline had AI ~12.34 FLOP/byte. The
+> algorithm was extended to 4 binary layers to improve accuracy on Caltech Camera
+> Traps; all hardware figures use the 4-layer model (M1 AI = 57.9 FLOP/byte).
+
+**Attained performance at 2.5 FPS (final 4-macro design):**
+2.5 FPS × 606 GOp/frame = **~1,515 GOPS** (XNOR equivalent)
+
+For reference, the 8-macro experiment attains 3.3 FPS × 606 GOp/frame = ~2,000 GOPS.
 
 ---
 
@@ -212,18 +221,18 @@ of a pure DRAM-based implementation.
 
 ### Cross-Configuration Comparison
 
-| Metric | 1-macro | 4-macro | 8-macro |
-|--------|---------|---------|---------|
-| Clock | 20 MHz | 40 MHz | 40 MHz |
-| Cycles/frame | 40,341,504 | 16,056,320 | 12,242,944 |
-| Frame time | 2,017 ms | 401 ms | 306 ms |
-| **Throughput** | **0.50 FPS** | **2.5 FPS** | **3.3 FPS** |
-| Power | 2.91 mW | **12.007 mW** | 17.78 mW |
-| Energy/frame | 5,869 µJ | **4,817 µJ** | 5,442 µJ |
-| Die area | 4.0 mm² | 4.32 mm² | 5.76 mm² |
-| Routing DRC | 0 | 5 (bypassed) | 12 (bypassed) |
-| KLayout DRC | 0 | **0** | 8 (bypassed) |
-| LVS errors | 0 | 7 (bypassed) | 15 (bypassed) |
+| Metric         | 1-macro      | 4-macro       | 8-macro       |
+| -------------- | ------------ | ------------- | ------------- |
+| Clock          | 20 MHz       | 40 MHz        | 40 MHz        |
+| Cycles/frame   | 40,341,504   | 16,056,320    | 12,242,944    |
+| Frame time     | 2,017 ms     | 401 ms        | 306 ms        |
+| **Throughput** | **0.50 FPS** | **2.5 FPS**   | **3.3 FPS**   |
+| Power          | 2.91 mW      | **12.007 mW** | 17.78 mW      |
+| Energy/frame   | 5,869 µJ     | **4,817 µJ**  | 5,442 µJ      |
+| Die area       | 4.0 mm²      | 4.32 mm²      | 5.76 mm²      |
+| Routing DRC    | 0            | 5 (bypassed)  | 12 (bypassed) |
+| KLayout DRC    | 0            | **0**         | 8 (bypassed)  |
+| LVS errors     | 0            | 7 (bypassed)  | 15 (bypassed) |
 
 The 4-macro design sits between 1-macro and 8-macro: 5× faster than 1-macro at the same
 40 MHz clock, 1.3× slower than 8-macro with cleaner DRC (KLayout 0 vs 8, routing 5 vs 12).
@@ -237,6 +246,6 @@ tile is not reduced by the memory bandwidth increase.
 
 ---
 
-*Data sources: `synth/power_report.txt`, `synth/area_report.txt`, `synth/timing_report.txt`,
+_Data sources: `synth/power_report.txt`, `synth/area_report.txt`, `synth/timing_report.txt`,
 `sram_1macro_experiment/` P&R reports, `sram_8macro_experiment/sim/timing_sim.log`,
-`project/m1/sw_baseline.md`*
+`project/m1/sw_baseline.md`_
