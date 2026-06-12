@@ -92,13 +92,13 @@ Key results — **Reg-file baseline** (`synth/`, retained as fallback):
 
 ### RTL (`rtl/`)
 
-| File                                                   | Description                                                                                                             | Supports                        |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| [rtl/top.sv](rtl/top.sv)                               | `bnn_top`: AXI4-Stream slave/master, 64×256-bit register-file weight memory, 3-stage pipelined `compute_core`, tile FSM | Checklist §2 RTL; Report §4, §5 |
-| [rtl/compute_core.sv](rtl/compute_core.sv)             | 3-stage BNN engine: XNOR → 8-chunk popcount → accumulate                                                                | Checklist §2 RTL; Report §4     |
-| [rtl/interface.sv](rtl/interface.sv)                   | `axis_interface`: 1-deep AXI4-Stream skid buffer; breaks combinational ready path                                       | Checklist §2 RTL; Report §5     |
-| [rtl/sram_behav_wrapper.sv](rtl/sram_behav_wrapper.sv) | Behavioral SRAM wrapper (simulation-only); not used in P&R                                                              | Report §4 memory arch           |
-| [rtl/sky130_sram_1kbyte_1rw1r_32x256_8_stub.v](rtl/)   | Sky130 OpenRAM macro stub; replaced by register file in synth/ due to routing obstruction                               | Report §9                       |
+| File                                                   | Description                                                                                                              | Supports                        |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------- |
+| [rtl/top.sv](rtl/top.sv)                               | `bnn_top`: AXI4-Stream slave/master, 640×256-bit register-file weight memory, 3-stage pipelined `compute_core`, tile FSM | Checklist §2 RTL; Report §4, §5 |
+| [rtl/compute_core.sv](rtl/compute_core.sv)             | 3-stage BNN engine: XNOR → 8-chunk popcount → accumulate                                                                 | Checklist §2 RTL; Report §4     |
+| [rtl/interface.sv](rtl/interface.sv)                   | `axis_interface`: 1-deep AXI4-Stream skid buffer; breaks combinational ready path                                        | Checklist §2 RTL; Report §5     |
+| [rtl/sram_behav_wrapper.sv](rtl/sram_behav_wrapper.sv) | Behavioral SRAM wrapper (simulation-only); not used in P&R                                                               | Report §4 memory arch           |
+| [rtl/sky130_sram_1kbyte_1rw1r_32x256_8_stub.v](rtl/)   | Sky130 OpenRAM macro stub; replaced by register file in synth/ due to routing obstruction                                | Report §9                       |
 
 ### Testbench (`tb/`)
 

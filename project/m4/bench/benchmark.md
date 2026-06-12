@@ -94,7 +94,7 @@ AXI stalls 1 cycle per beat during phase 1. Per-tile cycles = 2×n_beats + 6.
 
 At 40 MHz (25 ns/cycle): 16,056,320 × 25 ns = **401 ms → 2.5 FPS**
 
-Power: **11.53 mW** (post-route OpenSTA, TT 25°C 1.8V). Std-cell area: 75,802 µm². Die: 4.32 mm².
+Power: **12.007 mW** (post-route OpenSTA, TT 25°C 1.8V). Std-cell area: 75,802 µm². Die: 4.32 mm².
 
 #### 8-SRAM macro (40 MHz)
 
@@ -141,7 +141,7 @@ identified as the primary path to ≥30 FPS.
 | SW Baseline (M1 SoC)      | ~10,000 mW (estimated) | Published review (Anandtech 2020)    |
 | Reg-file (WD=64, 100 MHz) | 215.3 mW               | `synth/power_report.txt`             |
 | 1-SRAM macro (20 MHz)     | **2.91 mW**            | `sram_1macro_experiment/` post-route |
-| 4-SRAM macro (40 MHz)     | **11.53 mW**          | `sram_4macro_experiment/` post-route |
+| 4-SRAM macro (40 MHz)     | **12.007 mW**          | `sram_4macro_experiment/` post-route |
 | 8-SRAM macro (40 MHz)     | **17.78 mW**           | `sram_8macro_experiment/` post-route |
 
 All hardware power figures: OpenSTA post-route, nominal corner (TT 25°C 1.8V).
@@ -173,7 +173,7 @@ All hardware power figures: OpenSTA post-route, nominal corner (TT 25°C 1.8V).
 | ------------------ | ---------- | ---------- | ------------ |
 | M1 CPU (estimated) | ~10,000 mW | 12.19 ms   | ~122,000 µJ  |
 | 1-macro HW         | 2.91 mW    | 2,017 ms   | 5,869 µJ     |
-| 4-macro HW         | 11.53 mW  | 401 ms     | **4,620 µJ** |
+| 4-macro HW         | 12.007 mW  | 401 ms     | **4,815 µJ** |
 | 8-macro HW         | 17.78 mW   | 306.1 ms   | **5,442 µJ** |
 
 **~22× better energy/frame** than M1 despite lower throughput, because the hardware
@@ -234,8 +234,8 @@ For reference, the 8-macro experiment attains 3.3 FPS × 694 MOp/frame = ~2.29 G
 | Cycles/frame   | 40,341,504   | 16,056,320    | 12,242,944    |
 | Frame time     | 2,017 ms     | 401 ms        | 306 ms        |
 | **Throughput** | **0.50 FPS** | **2.5 FPS**   | **3.3 FPS**   |
-| Power          | 2.91 mW      | **11.53 mW** | 17.78 mW      |
-| Energy/frame   | 5,869 µJ     | **4,620 µJ**  | 5,442 µJ      |
+| Power          | 2.91 mW      | **12.007 mW** | 17.78 mW      |
+| Energy/frame   | 5,869 µJ     | **4,815 µJ**  | 5,442 µJ      |
 | Die area       | 4.0 mm²      | 4.32 mm²      | 5.76 mm²      |
 | Routing DRC    | 0            | 5 (bypassed)  | 12 (bypassed) |
 | KLayout DRC    | 0            | **0**         | 8 (bypassed)  |

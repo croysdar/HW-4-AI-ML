@@ -187,7 +187,7 @@ the 2× multiplier on n_beats reflects the per-beat stall cycle for the 2-phase 
 The final design uses 4× `sky130_sram_1kbyte_1rw1r_32x256_8` macros in a single row,
 performing 2-phase 128-bit reads at 40 MHz to assemble each 256-bit weight word. This
 configuration was selected from three SRAM variants and a register-file baseline by
-balancing energy per frame (4.62 mJ — best of all configs), throughput (2.5 FPS —
+balancing energy per frame (4.82 mJ — best of all configs), throughput (2.5 FPS —
 better than 1-macro's 0.50 FPS), and physical cleanliness (0 KLayout DRC errors —
 better than 8-macro's 8 errors). Full synthesis results for all configurations are in Section 7.
 
@@ -314,15 +314,15 @@ behavior. Full per-metric tables are in the respective experiment subdirectories
 | Clock constraint            | 25 ns (40 MHz)                                        |
 | Setup WNS                   | 0.0 ns (MET; worst-case slack +11.42 ns — 45% margin) |
 | Hold WNS                    | 0.0 ns (MET; no hold violations)                      |
-| Total power (TT 25°C 1.8V)  | **11.53 mW**                                          |
-| — Macro (4× SRAM)           | 6.21 mW (53.9%)                                       |
-| — Sequential                | 2.63 mW (22.8%)                                       |
-| — Clock distribution        | 1.89 mW (16.4%)                                       |
-| — Combinational             | 0.80 mW (6.9%)                                        |
+| Total power (TT 25°C 1.8V)  | **12.007 mW**                                         |
+| — Macro (4× SRAM)           | 6.21 mW (51.7%)                                       |
+| — Sequential                | 2.64 mW (22.0%)                                       |
+| — Clock distribution        | 2.15 mW (17.9%)                                       |
+| — Combinational             | 1.00 mW (8.3%)                                        |
 | Std-cell area               | 75,802 µm²                                            |
 | Die area                    | 4.32 mm² (2400×1800 µm, single-row macro placement)   |
 | **Throughput (BNN layers)** | **2.5 FPS** (401 ms/frame, 1,404,928 tiles)           |
-| **Energy/frame**            | **4.62 mJ** — best of all three SRAM configurations   |
+| **Energy/frame**            | **4.82 mJ** — best of all three SRAM configurations   |
 | Route DRC errors            | 5 (met3 spacing at macro edges — bypassed)            |
 | KLayout DRC errors          | **0**                                                 |
 | LVS errors                  | 7 (SRAM macro power pins — bypassed)                  |
@@ -374,8 +374,8 @@ The 8-macro (highest-throughput experiment) uses parallel 256-bit reads, giving
 | ----------------------- | -------------------- | -------- | ------------------- | -------- |
 | Frame time (BNN layers) | 6.6 ms               | 2,017 ms | **401 ms**          | 306 ms   |
 | Throughput              | 151.5 FPS            | 0.50 FPS | **2.5 FPS**         | 3.3 FPS  |
-| Power                   | ~10,000 mW           | 2.91 mW  | **11.53 mW**        | 17.78 mW |
-| Energy/frame            | ~66,000 µJ           | 5,870 µJ | **4,620 µJ**        | 5,442 µJ |
+| Power                   | ~10,000 mW           | 2.91 mW  | **12.007 mW**       | 17.78 mW |
+| Energy/frame            | ~66,000 µJ           | 5,870 µJ | **4,815 µJ**        | 5,442 µJ |
 
 _SW baseline: `project/serengeti2_profile.py` on Apple M5, 100-run wall-clock average,
 bnn_serengeti2.pth (4-layer, 1.47 GFLOP). 4-macro numbers from
@@ -396,7 +396,7 @@ identified path to reaching ≥30 FPS in a future revision.
 
 **Energy per frame:** Despite lower throughput at the current clock, the 4-macro final
 design achieves **~14× better energy per frame** than the M5 CPU baseline
-(4,620 µJ vs. ~66,000 µJ) — the best energy result of all configurations —
+(4,815 µJ vs. ~66,000 µJ) — the best energy result of all configurations —
 while staying 17× below the 200 mW target.
 
 ### 8.3 Configuration Comparison
@@ -406,13 +406,13 @@ while staying 17× below the 200 mW target.
 | Clock        | 20 MHz     | **40 MHz**          | 40 MHz       |
 | Cycles/frame | 40,341,504 | **16,056,320**      | 12,242,944   |
 | Frame time   | 2,017 ms   | **401 ms**          | 306 ms       |
-| Power        | 2.91 mW    | **11.53 mW**        | 17.78 mW     |
-| Energy/frame | 5,870 µJ   | **4,620 µJ**        | 5,442 µJ     |
+| Power        | 2.91 mW    | **12.007 mW**       | 17.78 mW     |
+| Energy/frame | 5,870 µJ   | **4,815 µJ**        | 5,442 µJ     |
 | Die area     | 4.0 mm²    | **4.32 mm²**        | 5.76 mm²     |
 | KLayout DRC  | 0          | **0**               | 8 (bypassed) |
 
 The 4-macro design achieves the best energy/frame by trading a modest throughput loss
-vs. 8-macro (401 ms vs. 306 ms, 1.3×) for significantly lower power (11.53 vs.
+vs. 8-macro (401 ms vs. 306 ms, 1.3×) for significantly lower power (12.007 vs.
 17.78 mW, 1.5×) and cleaner physical implementation (KLayout 0 vs. 8 errors).
 Energy/frame is the key metric for a battery-powered deployment.
 
