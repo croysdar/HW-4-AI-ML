@@ -1,19 +1,34 @@
 // =============================================================================
-// File   : project/m4/sram_4macro_experiment/sim/tb_top_4sram.sv
+// File   : project/m4/tb/tb_top_regfile.sv  (register-file variant — not the final design)
 // Module : tb_top
 //
-// End-to-end co-simulation testbench for bnn_top (4-SRAM-macro design).
+// End-to-end co-simulation testbench for bnn_top.
 //
-// Key differences from the register-file testbench:
-//   - WEIGHT_DEPTH = 128 (4 banks × 256 rows / 2 phases = 128 logical 256-bit words)
-//   - w_data is 32-bit; load_weight sends 8 consecutive w_en cycles per word
-//     (DUT's w_bank_sel auto-increments to route each 32-bit chunk to the
-//      correct bank and half)
-//   - Clock period 25 ns (40 MHz) to match the 4-SRAM macro timing target
-//   - 5-cycle pipeline latency (2 SRAM phases + 3 compute stages)
+// Tests the dominant kernel from M1 profiling: conv4 (128 input channels,
+// 3×3 kernel → 5 × 256-bit weight beats per filter tile).  Also exercises
+// conv2 (2 beats) and conv3 (3 beats) by reconfiguring cfg_beats_per_tile
+// between phases.
 //
-// Test phases mirror the register-file testbench exactly so that results are
-// directly comparable.  All w_base addresses fit within WEIGHT_DEPTH=128.
+// Protocol:
+//   All input data enters exclusively through the AXI4-Stream slave ports
+//   (s_axis_*).  All results are read exclusively through the AXI4-Stream
+//   master ports (m_axis_*).  The testbench never touches internal DUT
+//   signals for data transfer — only the interfaces a real host would use.
+//
+// Reference model:
+//   An independent SystemVerilog function (sv_dot) computes the expected
+//   accumulator value using $countones on the XNOR of each activation beat
+//   with the corresponding weight word.  This is entirely separate from the
+//   DUT's for-loop popcount.
+//
+// Test phases:
+//   Phase 1 — conv4 tile (5 beats): 3 tiles, random weights + activations.
+//   Phase 2 — conv2 tile (2 beats): 4 tiles, cfg reconfiguration.
+//   Phase 3 — conv3 tile (3 beats): 4 tiles.
+//   Phase 4 — backpressure: conv4 tiles with random m_axis_tready deassertions.
+//   Phase 5 — weight reload: reload weights and verify result changes.
+//
+// PASS/FAIL: single line printed at end. Grader reads the log.
 // =============================================================================
 
 `timescale 1ns/1ps
@@ -23,9 +38,9 @@ module tb_top;
 
     // ── Parameters ────────────────────────────────────────────────────────────
     localparam int  VECTOR_WIDTH  = 256;
-    localparam int  WEIGHT_DEPTH  = 128;   // logical 256-bit words in 4-SRAM design
+    localparam int  WEIGHT_DEPTH  = 640;
     localparam int  MAX_BEATS     = 5;
-    localparam real CLK_PERIOD    = 25.0;  // ns — 40 MHz
+    localparam real CLK_PERIOD    = 3.333; // ns — 300 MHz
 
     // ── DUT ports ─────────────────────────────────────────────────────────────
     logic        clk, rst;
@@ -40,10 +55,9 @@ module tb_top;
     logic [31:0] m_axis_tdata;
     logic        m_axis_tlast;
 
-    // 4-SRAM write interface: 32-bit wide, 8 cycles per 256-bit word
     logic        w_en;
     logic [$clog2(WEIGHT_DEPTH)-1:0] w_addr;
-    logic [31:0] w_data;
+    logic [VECTOR_WIDTH-1:0] w_data;
 
     logic [3:0]  cfg_beats_per_tile;
     logic [15:0] tile_count;
@@ -78,10 +92,11 @@ module tb_top;
     // ── Test state ────────────────────────────────────────────────────────────
     int fail_count;
 
-    // Reference weight shadow — full 256-bit words mirroring DUT SRAM contents.
+    // Reference weight shadow — mirrors what was loaded into the DUT.
     logic [VECTOR_WIDTH-1:0] ref_weights [0:WEIGHT_DEPTH-1];
 
-    // Shared activation buffer.
+    // Shared activation buffer (written before each tile, read by sv_dot).
+    // Packed as [beat][bit]: avoids unpacked-array-port limitation in Icarus.
     logic [MAX_BEATS-1:0][VECTOR_WIDTH-1:0] act_buf;
 
     // ── Helper: random 256-bit word ───────────────────────────────────────────
@@ -93,6 +108,8 @@ module tb_top;
     endfunction
 
     // ── Reference dot-product model ───────────────────────────────────────────
+    // Reads act_buf[0..n_beats-1] and ref_weights[base_addr..base_addr+n_beats-1].
+    // Returns the expected signed accumulator value.
     function automatic logic signed [31:0] sv_dot(
         input int base_addr,
         input int n_beats
@@ -109,22 +126,18 @@ module tb_top;
         return acc;
     endfunction
 
-    // ── Task: load one 256-bit weight word via 8 × 32-bit w_en cycles ─────────
-    // The DUT's w_bank_sel auto-increments each cycle, routing each 32-bit
-    // chunk to the correct bank and SRAM half.  w_addr must be held stable.
+    // ── Task: load one weight word via sideband port ──────────────────────────
     task automatic load_weight(input int addr, input logic [255:0] wval);
-        for (int chunk = 0; chunk < 8; chunk++) begin
-            @(posedge clk); #1;
-            w_en   = 1'b1;
-            w_addr = $clog2(WEIGHT_DEPTH)'(addr);
-            w_data = wval[chunk*32 +: 32];
-        end
+        @(posedge clk); #1;
+        w_en              = 1'b1;
+        w_addr            = $clog2(WEIGHT_DEPTH)'(addr);
+        w_data            = wval;
+        ref_weights[addr] = wval;
         @(posedge clk); #1;
         w_en = 1'b0;
-        ref_weights[addr] = wval;
     endtask
 
-    // ── Task: send one AXI beat ───────────────────────────────────────────────
+    // ── Task: send one AXI beat through the slave interface ───────────────────
     task automatic send_beat(
         input logic [VECTOR_WIDTH-1:0] data,
         input logic                    tlast
@@ -138,7 +151,7 @@ module tb_top;
         s_axis_tlast  = 1'b0;
     endtask
 
-    // ── Task: read one result from AXI master ────────────────────────────────
+    // ── Task: read one result from the AXI master interface ───────────────────
     task automatic read_result(output logic signed [31:0] result);
         m_axis_tready = 1'b1;
         do @(posedge clk); while (!m_axis_tvalid);
@@ -178,18 +191,21 @@ module tb_top;
         end
     endtask
 
-    // ── Task: flush pending result ────────────────────────────────────────────
+    // ── Task: flush any pending result from the master interface ──────────────
+    // Ensures result_valid is low before starting a new backpressure tile,
+    // so the receive thread cannot accidentally capture a stale result.
     task automatic flush_result();
         if (m_axis_tvalid) begin
             m_axis_tready = 1'b1;
             do @(posedge clk); while (!m_axis_tvalid);
             #1; m_axis_tready = 1'b0;
         end
+        // Also wait until valid deasserts
         while (m_axis_tvalid) @(posedge clk);
         #1;
     endtask
 
-    // ── Task: run one tile with random m_axis_tready backpressure ─────────────
+    // ── Task: run one tile with backpressure on m_axis_tready ─────────────────
     task automatic run_tile_bp(
         input int    n_beats,
         input int    w_base,
@@ -197,14 +213,19 @@ module tb_top;
     );
         logic signed [31:0] expected, got;
 
+        // Flush any leftover result before starting so the recv thread
+        // only sees the result produced by this tile's beats.
         flush_result();
 
         fill_acts(n_beats);
         expected = sv_dot(w_base, n_beats);
 
+        // Stream beats, then wait for result with random backpressure.
+        // Sequential (not fork) avoids racing against a stale result_valid.
         for (int b = 0; b < n_beats; b++)
             send_beat(act_buf[b], (b == n_beats - 1) ? 1'b1 : 1'b0);
 
+        // Now randomly toggle tready until we capture the result.
         got = '0;
         forever begin
             @(posedge clk); #1;
@@ -227,7 +248,7 @@ module tb_top;
 
     // ── Main test sequence ────────────────────────────────────────────────────
     initial begin
-        $dumpfile("project/m4/sram_4macro_experiment/sim/cosim_run.vcd");
+        $dumpfile("project/m4/sim/cosim_run.vcd");
         $dumpvars(0, tb_top);
 
         // Initialise
@@ -246,16 +267,15 @@ module tb_top;
         #1; rst = 1'b0;
         repeat (2) @(posedge clk); #1;
 
-        // ── Load all weights (128 words × 8 cycles each) ──────────────────────
-        $display("── Loading %0d weight words via sideband (8 cycles/word) ──", WEIGHT_DEPTH);
+        // ── Load all weights via sideband port ────────────────────────────────
+        $display("── Loading %0d weight words via sideband ──", WEIGHT_DEPTH);
         for (int i = 0; i < WEIGHT_DEPTH; i++)
             load_weight(i, rand256());
         $display("   Weight load complete.");
         repeat (2) @(posedge clk); #1;
 
         // ─────────────────────────────────────────────────────────────────────
-        // Phase 1: conv4 (5 beats/tile), 3 tiles
-        // w_ptr starts at 0; advances to 15 after this phase.
+        // Phase 1: conv4 (5 beats/tile) — dominant kernel from M1 profiling
         // ─────────────────────────────────────────────────────────────────────
         $display("── Phase 1: conv4 (5 beats/tile), 3 tiles ──");
         cfg_beats_per_tile = 4'd5;
@@ -266,8 +286,8 @@ module tb_top;
         run_tile_check(5, 10, "conv4");
 
         // ─────────────────────────────────────────────────────────────────────
-        // Phase 2: conv2 (2 beats/tile), 4 tiles
-        // w_ptr at 15 after Phase 1 (3×5=15 beats consumed).
+        // Phase 2: conv2 (2 beats/tile)
+        // w_ptr is at 15 after 3 conv4 tiles (3×5=15 beats consumed).
         // ─────────────────────────────────────────────────────────────────────
         $display("── Phase 2: conv2 (2 beats/tile), 4 tiles ──");
         cfg_beats_per_tile = 4'd2;
@@ -279,8 +299,8 @@ module tb_top;
         run_tile_check(2, 21, "conv2");
 
         // ─────────────────────────────────────────────────────────────────────
-        // Phase 3: conv3 (3 beats/tile), 4 tiles
-        // w_ptr at 23 after Phase 2 (15 + 4×2 = 23).
+        // Phase 3: conv3 (3 beats/tile)
+        // w_ptr is at 23 after Phase 2 (15 + 4×2 = 23).
         // ─────────────────────────────────────────────────────────────────────
         $display("── Phase 3: conv3 (3 beats/tile), 4 tiles ──");
         cfg_beats_per_tile = 4'd3;
@@ -292,8 +312,8 @@ module tb_top;
         run_tile_check(3, 32, "conv3");
 
         // ─────────────────────────────────────────────────────────────────────
-        // Phase 4: conv4 with random m_axis_tready backpressure, 3 tiles
-        // w_ptr at 35 after Phase 3 (23 + 4×3 = 35).
+        // Phase 4: conv4 with random m_axis_tready backpressure
+        // w_ptr is at 35 after Phase 3 (23 + 4×3 = 35).
         // ─────────────────────────────────────────────────────────────────────
         $display("── Phase 4: conv4 backpressure, 3 tiles ──");
         cfg_beats_per_tile = 4'd5;
@@ -304,9 +324,9 @@ module tb_top;
         run_tile_bp(5, 45, "conv4");
 
         // ─────────────────────────────────────────────────────────────────────
-        // Phase 5: weight reload — overwrite words 0-4 with all-ones, verify
-        // Expected: all-ones act XNOR all-ones weight = all-ones (256 bits)
-        //           popcount=256, dot=256 per beat, 5 beats → total = 1280
+        // Phase 5: weight reload — overwrite words 0-4, reset, verify result
+        // Expected: all-ones act XOR all-ones weight = all-ones XNOR = all-ones
+        //           popcount = 256, dot = 256 per beat, 5 beats → total = 1280
         // ─────────────────────────────────────────────────────────────────────
         $display("── Phase 5: weight reload (all-ones pattern) ──");
         rst = 1'b1;

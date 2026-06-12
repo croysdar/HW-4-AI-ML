@@ -250,12 +250,12 @@ signed 32-bit dot-product values.
 ### Hardware Inference Co-Simulation (M4)
 
 The 4-macro final design includes its own co-simulation testbench
-(`sram_4macro_experiment/sim/tb_top_4sram.sv`). This uses the same stimulus/reference
+(`tb/tb_top.sv`). This uses the same stimulus/reference
 methodology — synthetic weight and activation patterns compared tile-by-tile to the
 `sv_dot` Python reference — adapted for the 4-macro 2-phase write protocol
 (8 consecutive `w_en` pulses per logical word, with `w_bank_sel` routing 32-bit
 chunks across banks and phases). The result is **VERIFIABLE PASS** across all 18
-tile checks (`sram_4macro_experiment/sim/cosim_run.log`).
+tile checks (`sim/cosim_run.log`).
 
 ### Testbench Coverage
 
@@ -307,7 +307,7 @@ impact). The 15 LVS mismatches on 8-macro (7 on 4-macro) are SRAM macro power pi
 present in extracted GDS but absent from the gate-level netlist — standard black-box
 behavior. Full per-metric tables are in the respective experiment subdirectories.
 
-### 7.3 4-SRAM Design — Final Design (`sram_4macro_experiment/`)
+### 7.3 4-SRAM Design — Final Design (canonical `rtl/`, `synth/`, `tb/`)
 
 | Metric                      | Value                                                 |
 | --------------------------- | ----------------------------------------------------- |
@@ -340,7 +340,7 @@ and the smaller die (4.32 vs. 5.76 mm²) has fewer routing congestion sites.
 
 ### 8.1 Throughput
 
-**Final design throughput (4-macro, measured by `sram_4macro_experiment/sim/tb_timing_4macro.sv`):**
+**Final design throughput (4-macro, measured by `tb/tb_timing.sv`):**
 
 The 4-macro design processes one tile in `2×n_beats + 6` cycles (2-phase reads + 6-cycle drain):
 
@@ -379,7 +379,7 @@ The 8-macro (highest-throughput experiment) uses parallel 256-bit reads, giving
 
 _SW baseline: `project/serengeti2_profile.py` on Apple M5, 100-run wall-clock average,
 bnn_serengeti2.pth (4-layer, 1.47 GFLOP). 4-macro numbers from
-`sram_4macro_experiment/sim/tb_timing_4macro.sv` (iverilog simulation,
+`tb/tb_timing.sv` (iverilog simulation,
 40 MHz clock, 1,404,928 tiles). 8-macro from `sram_8macro_experiment/sim/timing_sim.log`._
 
 Note: The hardware frame time is _slower_ than the CPU for the binary layers

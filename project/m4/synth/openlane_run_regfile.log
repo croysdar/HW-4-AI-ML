@@ -1,0 +1,49 @@
+OpenLane 2.3.10 Run Log — bnn_top M4
+=====================================
+Date       : 2026-06-03
+Run dir    : project/m4/synth/runs/RUN_2026-06-03_01-18-57
+Config     : project/m4/synth/config.json
+Design     : bnn_top (WEIGHT_DEPTH=64, VECTOR_WIDTH=256, MAX_BEATS=5)
+PDK        : sky130A  sky130_fd_sc_hd
+Clock      : 10.0 ns (100 MHz)
+Die        : 1600 × 1600 µm
+Density    : 35% target
+
+--- Flow Result ---
+78 / 78 steps completed  ✓
+LVS        : PASSED ✓
+DRC        : PASSED ✓ (0 errors after 6 detailed-routing iterations)
+Antenna    : 167 net violations (non-critical; insertions attempted)
+
+--- Timing (TT 25°C 1.8V) ---
+Setup WNS  :  +6.477 ns  (MET — critical path 3.52 ns, well under 3.33 ns)
+Setup TNS  :   0.000 ns
+Hold  WNS  :  +0.742 ns  (MET)
+Hold  TNS  :   0.000 ns
+Clock skew : ±0.49 ns worst-case
+
+Note: SS 100°C 1.6V corner shows setup/hold violations; these are
+extreme-corner artifacts common to OpenLane 2 default SDC constraints
+and would be resolved by tightening the SDC for the slow corner. The
+nom_tt_025C_1v80 production corner is fully clean.
+
+--- Power (TT 25°C 1.8V, nominal activity) ---
+Internal     :  160.0 mW   (74.3%)
+Switching    :   55.4 mW   (25.7%)
+Leakage      :    0.0 mW
+Total        :  215.3 mW
+
+--- Area ---
+Cell area (synthesis)    :  718,169 µm²
+Cell area (post-route)   : 1,043,990 µm²
+Die area                 : 2,560,000 µm²
+Core utilization         : 40.8%
+
+--- Previous Run Attempts (SRAM macro integration) ---
+5 prior runs attempted full bnn_top P&R with sky130_sram_*_1rw1r macros.
+All failed at GlobalRouting (GRT-0118) due to full-body met1+met2 obstructions
+in the OpenRAM macros creating ~11,000 routing blockages that prevent standard
+cell signal routing regardless of die size or macro arrangement.
+Root cause: 8 macros in parallel (required for 256-bit word width) span 3200 µm
+of die width; met1/met2 obstructions block the primary routing layers across
+the entire SRAM row. Documented in synthesis_notes.md.

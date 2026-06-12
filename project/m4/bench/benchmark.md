@@ -83,7 +83,7 @@ At 20 MHz (50 ns/cycle): 40,341,504 × 50 ns = **2,017 ms → 0.50 FPS**
 
 2-phase SRAM reads: each 256-bit weight requires 2 cycles (phase 0 = lower 128 bits, phase 1 = upper 128 bits).
 AXI stalls 1 cycle per beat during phase 1. Per-tile cycles = 2×n_beats + 6.
-**Confirmed by iverilog simulation** (`sram_4macro_experiment/sim/tb_timing_4macro.sv`):
+**Confirmed by iverilog simulation** (`tb/tb_timing.sv`):
 
 | Layer     | Beats/tile | Cycles/tile | Tiles     | Cycles         |
 | --------- | ---------- | ----------- | --------- | -------------- |
@@ -141,7 +141,7 @@ identified as the primary path to ≥30 FPS.
 | SW Baseline (M1 SoC)      | ~10,000 mW (estimated) | Published review (Anandtech 2020)    |
 | Reg-file (WD=64, 100 MHz) | 215.3 mW               | `synth/power_report.txt`             |
 | 1-SRAM macro (20 MHz)     | **2.91 mW**            | `sram_1macro_experiment/` post-route |
-| 4-SRAM macro (40 MHz)     | **12.007 mW**          | `sram_4macro_experiment/` post-route |
+| 4-SRAM macro (40 MHz)     | **12.007 mW**          | `synth/power_report.txt` post-route  |
 | 8-SRAM macro (40 MHz)     | **17.78 mW**           | `sram_8macro_experiment/` post-route |
 
 All hardware power figures: OpenSTA post-route, nominal corner (TT 25°C 1.8V).
